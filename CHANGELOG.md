@@ -4,6 +4,30 @@ All notable changes to `cfb_edge.py` and the analysis loop. Rule changes cite th
 run that justified them; nothing in the constants block changes without one. Weekly report
 releases (`<weekday>-<date>` tags) are not listed here; see the GitHub releases page.
 
+## [2026-09-20c] — analysis/05: the soccer analysis loop (Python + R)
+
+### Added
+- **`analysis/05_soccer/soccer_loop.{py,R}`** + `_shared/load_soccer.{py,R}`. One script,
+  four sections: A. 3-way paper ROI by pick × strength with 5,000-rep bootstrap CI; B. hit %
+  and flat ROI by edge band, price band, pick (Wilson); C. Elo calibration bins for
+  P(home)/P(draw)/P(away) and 3-way log-loss of the model vs the de-vigged closer; D. refit of
+  `ELO_HFA` × `DRAW_BASE` by held-out log-likelihood on the full results table (Elo replay
+  re-implemented in both runtimes). CI runs both against an empty `CFB_SOCCER_DB`.
+
+### Findings (first run, 229 backfilled bets / 374 settled snapshots / 39,583 results; Py == R to 1e-14)
+- Flat ROI **−9.6%** [−27%, +9%], inconclusive. STRONG +3.6% (n=88), value −17.8% (n=141).
+- **Bigger edge, worse hit**: 8–15% → 47.3%; 20–30% → 31.4%; 50%+ → 24.3%. Football's shape.
+- Elo home win-probs run 7–9 pp high in the 40–70% bins; away the same; draws about right.
+- **The closer is sharper**: 3-way log-loss Elo 1.0555 vs de-vigged closer 1.0207.
+- **Priors confirmed**: HFA 60 / DRAW_BASE 0.26 is exactly the grid optimum (HFA 0–120,
+  draw 0.20–0.32) on the held-out second half of the results table. No constant changed.
+
+### Docs
+- README: soccer "Honest status" is now a findings table; overview, analysis, analysis-loop,
+  weekly-loop and CI diagrams show `05`; running blocks and file table updated.
+  `analysis/README.md`, `CLAUDE.md` updated. Report footer and constants comment in
+  `soccer_edge.py` cite the run.
+
 ## [2026-09-20b] — Pro soccer module, repo renamed to cfb_pro_soccer_2026
 
 ### Added

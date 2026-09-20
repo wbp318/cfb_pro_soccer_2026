@@ -1,9 +1,9 @@
 # Soccer Outlier Report — Sunday, September 20, 2026
 
-**Generated:** 2026-09-20 08:29 AM CDT  
+**Generated:** 2026-09-20 08:40 AM CDT  
 **STAKES: PAPER ONLY as of 2026-09-20 — no bucket has a 95% CI above zero. $Bet is what the paper ledger logs, not a recommendation to bet real money.**  
-**Slate:** 280 matches across every league ESPN lists, 235 not yet kicked, 109 with a DraftKings three-way price, 108 with an Elo rating on both sides  
-**Model:** self-built Elo from 39,565 ESPN results (K=20, HFA=60, draw base 0.26). No soccer analysis run has happened yet: every threshold is a prior.
+**Slate:** 280 matches across every league ESPN lists, 233 not yet kicked, 108 with a DraftKings three-way price, 107 with an Elo rating on both sides  
+**Model:** self-built Elo from 39,583 ESPN results (K=20, HFA=60, draw base 0.26; both confirmed by analysis/05 on 2026-09-20). The closer is sharper than Elo (3-way log-loss 1.021 vs 1.056) and bigger edges hit less often — same lesson as football.
 
 **Leagues priced today (40):** Argentine Liga Profesional de Fútbol, Argentine Nacional B, Argentine Primera B, Austrian Bundesliga, Belgian Pro League, Brazilian Serie A, Brazilian Serie B, Colombian Primera A, Costa Rican Primera Division, Danish Superliga, Dutch Eredivisie, Dutch Keuken Kampioen Divisie, Dutch Vrouwen Eredivisie, English Premier League, French Ligue 1, German Bundesliga, Greek Super League, Guatemalan Liga Nacional, Italian Serie A, Italian Serie B, Liga AUF Uruguaya, LigaPro Ecuador, MLS, Mexican Liga BBVA MX, Mexican Liga de Expansión MX, NWSL, Norwegian Eliteserien, Paraguayan Primera División, Peruvian Liga 1, Portuguese Primeira Liga, Salvadoran Primera Division, South African Premiership, Spanish LALIGA, Spanish LALIGA 2, Spanish Liga F, Swedish Allsvenskan, Taca de Portugal, Turkish Super Lig, USL Championship, Venezuelan Primera División
 
@@ -122,29 +122,29 @@ sun 05:15am  ned.1         UTR @ FEY 5-0 FT                      -340/+475/+750 
 sun 05:15am  ned.w.1       GRA @ PEC 2-3 FT                      —/—/—             1475/1487   44%/26%/30%   —
 sun 05:30am  ita.1         NAP @ FIO 1-1 FT                      +205/+225/+125    1534/1601   36%/26%/38%   2.5     3W value Fiorentina +205 (+18%) $1
 sun 06am     eng.2         WBA @ WOL 1-0 FT                      -110/+260/+310    1461/1498   40%/26%/34%   2.5     3W value West Bromwich Albion +310 (+45%) $3 ⚠long-dog
-sun 06am     por.taca.port VIA @ CAL                             —/—/—             —/1506      —/—/—         —
+sun 06am     por.taca.port VIA @ CAL 1-3 FT                      —/—/—             —/1506      —/—/—         —
 sun 06am     sco.1         RAN @ CEL 0-1 FT                      +120/+255/+210    1694/1661   51%/24%/25%   2.5     3W value Celtic +120 (+19%) $3  [total 3.5→2.5]
 sun 06:30am  bel.1         USG @ ANT 0-2 FT                      +450/+340/-185    1467/1697   17%/21%/62%   3.5      [total 2.5→3.5]
 sun 06:30am  ger.2         HDH @ DSC 2-2 FT                      -105/+280/+250    1469/1448   49%/25%/26%   3.5      [total 2.5→3.5]
 sun 06:30am  ger.2         STP @ COT 1-1 FT                      +210/+290/+110    1485/1392   60%/22%/19%   3.5     STRONG 3W Energie Cottbus +210 (+96%) $5  [total 2.5→3.5]
 sun 06:30am  ger.2         BOC @ H96 2-1 FT                      -105/+285/+255    1570/1517   54%/23%/23%   3.5     3W value Hannover 96 -105 (+11%) $1
 sun 07am     den.1         KBH @ BRO 0-0 live                    +190/+255/+130    1507/1662   25%/24%/51%   2.5     STRONG 3W F.C. København +130 (+25%) $3
-sun 07am     den.1         RAN @ SON 3-2 live                    +175/+260/+140    1443/1449   45%/25%/30%   2.5     STRONG 3W Sønderjyske Fodbold +175 (+31%) $3
+sun 07am     den.1         RAN @ SON 4-2 live                    +175/+260/+140    1443/1449   45%/25%/30%   2.5     STRONG 3W Sønderjyske Fodbold +175 (+31%) $3
 sun 07am     esp.1         MCF @ GET 0-0 live                    -110/+220/+370    1512/1585   35%/26%/39%   2.5     3W value Málaga +370 (+91%) $5 ⚠long-dog [total 1.5→2.5]
-sun 07am     esp.2         OVI @ CDS 2-1 live                    +130/+195/+255    1519/1436   58%/22%/19%   1.5     STRONG 3W CD Sabadell +130 (+42%) $5  [total 2.5→1.5]
-sun 07am     swe.1         ELF @ DJU 1-1 live                    -185/+350/+450    1645/1503   67%/19%/14%   2.5     3W value Djurgården -185 (+8%) $1
+sun 07am     esp.2         OVI @ CDS 3-1 live                    +130/+195/+255    1519/1436   58%/22%/19%   1.5     STRONG 3W CD Sabadell +130 (+42%) $5  [total 2.5→1.5]
+sun 07am     swe.1         ELF @ DJU 1-2 live                    -185/+350/+450    1645/1503   67%/19%/14%   2.5     3W value Djurgården -185 (+8%) $1
 sun 07am     swe.1         AIK @ HBK 1-1 live                    +235/+290/+100    1369/1517   25%/24%/50%   2.5
 sun 07am     swe.1         BKH @ KFF 0-5 live                    +160/+255/+155    1446/1519   35%/26%/39%   2.5
 sun 07:30am  aut.1         WOL @ SJR 3-0 live                    -105/+270/+265    1455/1454   46%/25%/29%   2.5     3W value Wolfsberger +265 (+11%) ⚠long-dog
-sun 07:30am  aut.1         LAS @ HAR 0-2 live                    +700/+400/-280    1483/1639   24%/24%/51%   3.5     ⚠long-dog
-sun 07:30am  eng.2         BOL @ NOR 2-2 live                    -235/+400/+550    1554/1560   45%/25%/30%   3.5     ⚠long-dog [home -175→-235 (+6.9pp)]
+sun 07:30am  aut.1         LAS @ HAR 1-2 live                    +700/+400/-280    1483/1639   24%/24%/51%   3.5     ⚠long-dog
+sun 07:30am  eng.2         BOL @ NOR 2-3 live                    -235/+400/+550    1554/1560   45%/25%/30%   3.5     ⚠long-dog [home -175→-235 (+6.9pp)]
 sun 07:30am  ned.1         TEL @ AZ 1-0 live                     -390/+550/+850    1665/1499   70%/18%/13%   3.5     ⚠long-dog
 sun 07:30am  ned.1         PSV @ TWE 1-2 live                    +190/+300/+115    1642/1706   36%/26%/38%   3.5     3W value FC Twente +190 (+12%) $1
 sun 07:30am  nor.1         FRE @ VAL 0-0 live                    -115/+300/+260    1451/1496   39%/26%/35%   3.5     3W value Fredrikstad +260 (+33%) $2 ⚠long-dog
 sun 08am     eng.1         LIV @ BOU 0-0 live                    +215/+270/+115    1603/1625   43%/26%/32%   2.5     STRONG 3W AFC Bournemouth +215 (+41%) $4  [total 3.5→2.5]
 sun 08am     eng.1         CRY @ LEE 0-0 live                    -155/+300/+425    1598/1571   50%/24%/26%   2.5     ⚠long-dog [home +100→-155 (+11.5pp)]
-sun 08am     eng.1         SUN @ MNC 1-1 live                    -280/+425/+750    1792/1550   78%/13%/8%    2.5     3W value Manchester City -280 (+11%) $4
-sun 08am     eng.w.1       AVL @ BHA 0-0 live                    -215/+340/+475    1534/1427   62%/21%/17%   3.5     ⚠long-dog [home -140→-215 (+10.1pp)] [total 2.5→3.5]
+sun 08am     eng.1         SUN @ MNC 2-2 live                    -280/+425/+750    1792/1550   78%/13%/8%    2.5     3W value Manchester City -280 (+11%) $4
+sun 08am     eng.w.1       AVL @ BHA 1-0 live                    -215/+340/+475    1534/1427   62%/21%/17%   3.5     ⚠long-dog [home -140→-215 (+10.1pp)] [total 2.5→3.5]
 sun 08am     eng.w.1       TOT @ CRY 0-0 live                    +550/+370/-250    1517/1547   41%/26%/33%   2.5     ⚠long-dog [away -185→-250 (+7.2pp)]
 sun 08am     eng.w.1       EVE @ WHU 0-0 live                    +130/+225/+195    1469/1483   44%/26%/31%   2.5     3W value West Ham United +130 (+9%)
 sun 08am     fra.1         BRE @ AUX 0-1 live                    +200/+245/+135    1462/1468   45%/25%/30%   2.5     STRONG 3W AJ Auxerre +200 (+42%) $4
@@ -154,10 +154,10 @@ sun 08am     ita.2         SUD @ ARE 0-0 live                    +130/+205/+240 
 sun 08am     ita.2         VIC @ VER 0-0 live                    -115/+245/+330    1380/1495   29%/25%/45%   2.5     3W value Vicenza +330 (+106%) $5 ⚠long-dog
 sun 08am     por.taca.port LEI @ CIN                             —/—/—             1508/1503   47%/25%/28%   —
 sun 08am     rsa.1         KAI @ ARR 0-0 live                    +250/+200/+115    1513/1597   34%/26%/41%   2.5     STRONG 3W Golden Arrows +250 (+27%) $2
-sun 08am     rsa.1         ORL @ MAR 0-0 live                    +750/+360/-295    1392/1713   10%/15%/74%   2.5
+sun 08am     rsa.1         ORL @ MAR 0-1 live                    +750/+360/-295    1392/1713   10%/15%/74%   2.5
 sun 08am     rsa.1         DUR @ MIL 0-0 live                    +175/+185/+175    1518/1500   49%/25%/27%   2.5     ⚠unrated [total 1.5→2.5]
 sun 08am     uru.1         JUV @ ALB 0-2 live                    +190/+230/+130    1470/1496   42%/26%/32%   2.5     STRONG 3W Albion FC +190 (+32%) $3  [away +160→+130 (+5.4pp)]
-sun 08:30am  ger.1         RBL @ B04                             -125/+310/+250    1645/1604   52%/24%/24%   3.5     ⚠long-dog
+sun 08:30am  ger.1         RBL @ B04 0-0 live                    -125/+310/+250    1645/1604   52%/24%/24%   3.5     ⚠long-dog
 sun 09am     bel.1         KVCW @ STVV                           -150/+320/+370    1548/1480   56%/23%/21%   3.5     ⚠long-dog
 sun 09am     bra.1         PAL @ GRE                             +300/+255/-110    1540/1719   22%/23%/55%   2.5     3W value Palmeiras -110 (+11%) $1
 sun 09am     bra.2         CRB @ PON                             +700/+400/-275    1274/1557   13%/18%/70%   2.5     ⚠long-dog
@@ -404,4 +404,4 @@ draw       1    5   1   4     1.00    -1.00 -100.0%
 home       1   80  30  50   180.00   -29.21  -16.2%
 ```
 
-> Paper only. The soccer module has no analysis run behind it yet; the ledger above is the first thing that will say whether Elo-vs-DK is anything. Draw picks are capped at value because the draw split is the model's weakest assumption.
+> Paper only. analysis/05 (Python == R) on the first 229 backfilled bets: flat ROI −9.6%, edge 8-15% hits 47%, edge 50%+ hits 24%, the de-vigged closer beats Elo on log-loss. Draw picks are capped at value because the draw split is the model's weakest assumption.

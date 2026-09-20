@@ -33,8 +33,8 @@ python analysis/01_paper_roi_ci/paper_roi.py      # and the .R twin via Rscript
 ```
 
 CI (`.github/workflows/ci.yml`) runs on every push: py_compile, `ruff check` (fix the code,
-never relax the lint), `--help`, schema bootstrap on a scratch DB, and all four analysis
-scripts in both Python and R against that empty DB via the `CFB_DB` env var. Run
+never relax the lint), `--help`, schema bootstrap on a scratch DB, and all five analysis
+scripts in both Python and R against empty DBs via the `CFB_DB` / `CFB_SOCCER_DB` env vars. Run
 `ruff check cfb_edge.py cfb_gui.py analysis tests` and `python -m pytest -q tests` before pushing.
 `ruff.toml` pins the rule set (E4/E7/E9/F) so a ruff upgrade in CI can't move the goalposts.
 
@@ -45,7 +45,7 @@ ranking order, `_grade`/`_profit` for spread/ML/total, a full SQLite persist →
 settle round trip on a tmp DB, the column migration, the bets.csv ledger, the picks-board filter, the day-aware report name, and Wilson-interval
 parity with the analysis loader. When you change a threshold or add a demotion, add a case.
 Also verify by running the board for next Saturday and one `--backfill`
-of a past Saturday, then running all four analysis scripts in **both** runtimes and checking
+of a past Saturday, then running all five analysis scripts in **both** runtimes and checking
 the point estimates match. `Rscript` is at `C:\Program Files\R\R-4.4.2\bin` (not on PATH).
 
 ## Architecture
@@ -58,7 +58,11 @@ It imports the odds math, `stake_for`, `stakes_banner` and `LIVE_STAKES` from `c
 and must not re-implement them. Signals: `ml3_signal` (Elo H/D/A vs de-vigged 3-way),
 `prob_move_signal`, `total_move_signal`. Demotions: either side with < `ELO_MIN_MATCHES`
 results → strength 0 (⚠unrated); draw picks capped at value (⚠draw-model); > +250 capped
-(⚠long-dog). No soccer analysis run exists yet — every soccer constant is a prior; say so.
+(⚠long-dog). Its analysis loop is `analysis/05_soccer` (Python + R): 3-way ROI, slices, Elo
+calibration + log-loss vs the closer, and an `ELO_HFA` × `DRAW_BASE` refit on the results
+table. First run 2026-09-20: priors confirmed (HFA 60 / 0.26 is the grid optimum), closer
+sharper than Elo, bigger edge → worse hit. The Elo replay in 05 duplicates `elo_update` on
+purpose (both runtimes need it); keep them identical.
 Tests: `tests/test_soccer_edge.py` (18 cases, no network). `soccer.db` and
 `soccer_leagues.json` are gitignored.
 
@@ -111,7 +115,7 @@ and `_migrate_columns` ALTERs them onto existing DBs. Never drop a column.
 
 **The analysis loop** (`analysis/`, Python + R twins) is the only source of truth for the
 constants block at the top of `cfb_edge.py` (`SPREAD_OUTLIER_PTS`, `MARGIN_SD`, `STEAM_PTS`,
-…). To refresh: run all four scripts in both runtimes, confirm they agree, change constants,
+…). To refresh: run all five scripts in both runtimes, confirm they agree, change constants,
 bump `FINDINGS_AS_OF`, update the "Before you bet" table in README.md, commit + push.
 
 ## Gotchas

@@ -59,6 +59,7 @@ jobs:
           python analysis/02_fpi_calibration/fpi_calibration.py
           python analysis/03_line_move/line_move.py
           python analysis/04_deep_dive/deep_dive.py
+          python analysis/05_soccer/soccer_loop.py
 
   r:
     name: R twins
@@ -98,3 +99,4 @@ jobs:
           Rscript analysis/02_fpi_calibration/fpi_calibration.R
           Rscript analysis/03_line_move/line_move.R
           Rscript analysis/04_deep_dive/deep_dive.R
+          Rscript analysis/05_soccer/soccer_loop.R

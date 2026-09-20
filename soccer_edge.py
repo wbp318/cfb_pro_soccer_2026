@@ -62,7 +62,7 @@ ML_LONG_DOG = 250                 # beyond this a dog is capped at "value"
 PROB_MOVE_PP = 5.0                # open->current implied-prob move worth surfacing
 TOTAL_MOVE = 0.5                  # goals
 ELO_BUILD_SINCE = "2025-07-01"    # default first day of results for --build-elo
-FINDINGS_AS_OF = "2026-09-20"     # no soccer analysis run yet — every constant above is a prior
+FINDINGS_AS_OF = "2026-09-20"     # analysis/05 first run: HFA 60 / DRAW_BASE 0.26 = grid optimum on 39,583 results
 
 
 # =====================================================================
@@ -674,7 +674,8 @@ def write_report(matches: list[Match], bankroll: float, date: dt.date, now: dt.d
          f"**Slate:** {len(matches)} matches across every league ESPN lists, {len(pre)} not yet kicked, "
          f"{len(priced)} with a DraftKings three-way price, {len(rated)} with an Elo rating on both sides  ",
          f"**Model:** self-built Elo from {elo_n:,} ESPN results (K={ELO_K:g}, HFA={ELO_HFA:g}, "
-         f"draw base {DRAW_BASE:.2f}). No soccer analysis run has happened yet: every threshold is a prior.",
+         f"draw base {DRAW_BASE:.2f}; both confirmed by analysis/05 on {FINDINGS_AS_OF}). The closer is sharper "
+         "than Elo (3-way log-loss 1.021 vs 1.056) and bigger edges hit less often — same lesson as football.",
          "", f"**Leagues priced today ({len(leagues)}):** " + ", ".join(leagues), "",
          "## 1. Ranked outliers", "",
          "| # | Tag | Kick (CT) | League | Match | Play | Model vs fair | $Bet (paper) | Flags |",
@@ -695,9 +696,9 @@ def write_report(matches: list[Match], bankroll: float, date: dt.date, now: dt.d
         L.append("| — | — | — | — | no flagged outliers | | | | |")
     L += ["", "## 2. Full board", "", "```", render_board(matches, bankroll), "```", "",
           "## 3. Soccer paper ledger to date", "", "```", paper_summary, "```", "",
-          "> Paper only. The soccer module has no analysis run behind it yet; the ledger above is the "
-          "first thing that will say whether Elo-vs-DK is anything. Draw picks are capped at value "
-          "because the draw split is the model's weakest assumption."]
+          "> Paper only. analysis/05 (Python == R) on the first 229 backfilled bets: flat ROI −9.6%, "
+          "edge 8-15% hits 47%, edge 50%+ hits 24%, the de-vigged closer beats Elo on log-loss. Draw "
+          "picks are capped at value because the draw split is the model's weakest assumption."]
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(L) + "\n")
     return path

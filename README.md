@@ -185,6 +185,7 @@ flowchart TB
         ELO --> SIG2["ml3 signal\nElo H/D/A vs de-vigged DK 3-way\nprob move · total move"]
         SIG2 --> OUT2["board · --top\nreports/soccer-WEEKDAY-DATE.md\nsoccer.db paper ledger"]
     end
+    OUT2 -.->|"soccer.db"| LS
 
     subgraph STORE["2 · Storage (local only, gitignored)"]
         DB[("data.db\ngames · snapshots · paper_bets")]
@@ -197,7 +198,8 @@ flowchart TB
         L --> A2["02 FPI calibration\nRMSE vs closer · cover % by Δ"]
         L --> A3["03 line move\nfollow-the-money"]
         L --> A4["04 deep dive\nhit % + ROI by edge · price · |spread|\ncalibration"]
-        A1 & A2 & A3 & A4 --> AGREE{"Python == R?"}
+        LS["_shared/load_soccer\n.py ⇄ .R"] --> A5["05 soccer loop\n3-way ROI · slices · Elo calibration\nHFA × draw-base refit"]
+        A1 & A2 & A3 & A4 & A5 --> AGREE{"Python == R?"}
     end
 
     subgraph GUARD["4 · Guard rails (no internet, no real data)"]
@@ -278,9 +280,11 @@ flowchart LR
     LG --> S3["03 line_move\nQ-A: does the side the line moved toward cover?\nQ-B: FPI side cover % when steam is WITH vs AGAINST it"]
     LB --> S4["04 deep_dive\nQ: where exactly does it win and lose?\nhit % + flat ROI by edge band · ML price band\n|spread| · dog/fav · home/away\nmodel truth_p vs actual (calibration)"]
     LG --> S4
+    SDB[("soccer.db")] --> LSB["load_soccer_bets() · load_soccer_matches()\nload_results()"]
+    LSB --> S5["05 soccer_loop\nQ-A: does the 3-way ledger make money? (bootstrap CI)\nQ-B: by edge band · price band · pick\nQ-C: is Elo calibrated? log-loss vs the closer\nQ-D: refit ELO_HFA × DRAW_BASE on the results table"]
 
-    S1 & S2 & S3 & S4 --> OUTC["analysis/_out/*.csv\n(gitignored)"]
-    S1 & S2 & S3 & S4 --> STD["stdout tables\nsame numbers in .py and .R"]
+    S1 & S2 & S3 & S4 & S5 --> OUTC["analysis/_out/*.csv\n(gitignored)"]
+    S1 & S2 & S3 & S4 & S5 --> STD["stdout tables\nsame numbers in .py and .R"]
 ```
 
 The R and Python versions of each script share the same SQL string, the same bins, and the
@@ -428,7 +432,7 @@ sequenceDiagram
     Note over You,An: Sun morning
     You->>Tool: --settle
     Tool->>DB: finals → grade paper_bets + bets.csv
-    You->>An: python analysis/…/*.py  and  Rscript analysis/…/*.R (all four)
+    You->>An: python analysis/…/*.py  and  Rscript analysis/…/*.R (all five: 01–04 football, 05 soccer)
     An-->>You: same numbers twice, or a bug
     An-->>You: 04 deep dive — which bucket a rule change would actually touch
     You->>Tool: update constants (thresholds, demotions, LIVE_STAKES), bump FINDINGS_AS_OF
@@ -567,8 +571,11 @@ flowchart LR
     L1 & L2 --> S2["02 FPI calibration\nWilson bins · RMSE vs closer · cover % by Δ"]
     L1 & L2 --> S3["03 line move\nfollow-the-money · steam with/against FPI"]
     L1 & L2 --> S4["04 deep dive\nhit % + ROI by edge band · price band\n|spread| · dog/fav · home/away · calibration"]
-    S1 & S2 & S3 & S4 --> V{"Py == R ?"}
-    V -- yes --> C["update constants in cfb_edge.py\nSPREAD_OUTLIER_PTS · SPREAD_OVERREACH_PTS\nML_DEAD_ZONE · LIVE_STAKES · bump FINDINGS_AS_OF\n+ CHANGELOG.md entry"]
+    SDB[("soccer.db")] --> L3["_shared/load_soccer.py"]
+    SDB --> L4["_shared/load_soccer.R"]
+    L3 & L4 --> S5["05 soccer loop\n3-way ROI · slices · Elo calibration\nHFA × draw-base refit"]
+    S1 & S2 & S3 & S4 & S5 --> V{"Py == R ?"}
+    V -- yes --> C["update constants in cfb_edge.py / soccer_edge.py\nSPREAD_OVERREACH_PTS · ML_DEAD_ZONE · LIVE_STAKES\nELO_HFA · DRAW_BASE · bump FINDINGS_AS_OF\n+ CHANGELOG.md entry"]
     V -- no --> BUG["fix the runtime that's wrong"]
 ```
 
@@ -659,6 +666,7 @@ python analysis/01_paper_roi_ci/paper_roi.py
 python analysis/02_fpi_calibration/fpi_calibration.py
 python analysis/03_line_move/line_move.py
 python analysis/04_deep_dive/deep_dive.py
+python analysis/05_soccer/soccer_loop.py          # reads soccer.db (CFB_SOCCER_DB overrides)
 
 # R (install packages once; see the PATH diagram above)
 Rscript -e 'install.packages(readLines("analysis/requirements-r.txt"), repos="https://cloud.r-project.org")'
@@ -666,6 +674,7 @@ Rscript analysis/01_paper_roi_ci/paper_roi.R
 Rscript analysis/02_fpi_calibration/fpi_calibration.R
 Rscript analysis/03_line_move/line_move.R
 Rscript analysis/04_deep_dive/deep_dive.R
+Rscript analysis/05_soccer/soccer_loop.R
 ```
 
 Outputs land in `analysis/_out/` (gitignored). See [`analysis/README.md`](analysis/README.md).
@@ -687,10 +696,10 @@ flowchart LR
     P2 --> PT["pytest tests/\n47 cases · no network"]
     PT --> P3["cfb_edge.py --help\n(argparse still parses)"]
     P3 --> P4["--paper-show --db scratch.db\n(SCHEMA + MIGRATIONS bootstrap)"]
-    P4 --> P5["run all 4 analysis .py\nagainst the empty scratch DB\nCFB_DB env var"]
+    P4 --> P5["run all 5 analysis .py\nagainst empty scratch DBs\nCFB_DB + CFB_SOCCER_DB env vars"]
     RJ --> R1["install DBI · RSQLite · dplyr · boot"]
     R1 --> R2["bootstrap the same scratch DB\nwith the Python tool"]
-    R2 --> R3["run all 4 analysis .R\nagainst it"]
+    R2 --> R3["run all 5 analysis .R\nagainst them"]
     P5 & R3 --> OK{"green?"}
     OK -- yes --> M["merge / it's safe to run Saturday"]
     OK -- no --> FIX["fix the code, not the check"]
@@ -805,20 +814,26 @@ flowchart TD
 | `--elo-show N` | print the top‑N Elo table |
 | `--paper-show` | soccer paper ledger by pick × strength |
 
-**Honest status.** No soccer analysis run exists yet. Every constant in the soccer block is a
-prior, the paper ledger in `soccer.db` is the first thing that will say whether Elo‑vs‑DK is
-anything, and the banner says PAPER ONLY on every soccer board because `LIVE_STAKES` is shared.
-Football's lesson applies in advance: the biggest disagreements are where the market most
-likely knows something the rating does not. First backfill (2026‑09‑12/13, 229 paper bets,
-closers + Elo‑as‑of): flat ROI **−14.7%**; STRONG +3.1% on 88, value −35% on 141. Two days,
-no verdict, paper only.
+**Honest status (first soccer analysis run 2026‑09‑20, Python == R).** `analysis/05_soccer`
+graded the first two backfilled days and refit the priors on the whole results table:
+
+| Question (`05`) | Answer |
+|---|---|
+| Does the 3‑way paper ledger make money? | 229 bets, flat ROI **−9.6%** [−27%, +9%] — inconclusive. STRONG +3.6% on 88, value −17.8% on 141 |
+| Does a bigger Elo‑vs‑DK gap win more? | No, the opposite: edge 8‑15% hits **47%**, 20‑30% **31%**, 50%+ **24%** |
+| Is Elo calibrated? | Home win‑probs run 7–9 pp high between 40% and 70%; away the same. Draws about right |
+| Who is sharper, Elo or the closer? | 3‑way log‑loss: Elo **1.056**, de‑vigged closer **1.021**. The market wins |
+| Are HFA 60 and draw base 0.26 right? | Yes: the grid optimum on 39,583 results, held‑out second half, is exactly HFA 60 / 0.26 |
+
+So the model's *parameters* are fine and the model itself is not better than the market,
+which is the football lesson again. Paper only; the banner says so on every soccer board
+because `LIVE_STAKES` is shared. The first rule change the data would support is a soccer
+overreach cap like football's; it waits for more than two days of ledger.
 
 ## Roadmap (only if the numbers earn it)
 
-- **Soccer analysis twins.** `soccer.db` has the same shape as `data.db` (matches · snapshots ·
-  paper_bets · results). An `analysis/05_soccer_*` pair (Python + R) that grades the 3‑way
-  ledger by pick, price band and edge band, fits `DRAW_BASE` and `ELO_HFA` on the results table,
-  and reports Elo calibration is the next thing to build once a few weekends are settled.
+- **Soccer overreach cap.** `05` already shows the football shape (bigger edge, worse hit).
+  When the soccer ledger has a month, test `edge ≥ 30%` → cap at value in both runtimes.
 
 - **Multi‑book line shopping.** ESPN exposes only DraftKings. A keyed API (CollegeFootballData
   or The Odds API, both free tiers) would add FanDuel/Caesars/BetMGM and turn "FPI vs DK" into
@@ -848,7 +863,7 @@ contact William Brooks Parker via [github.com/wbp318](https://github.com/wbp318)
 | `cfb_gui.py` | optional local browser dashboard over `cfb_edge.py` (stdlib only) |
 | `betting_guide.md` | live‑play reference: thresholds, what to fire on, discipline |
 | `CLAUDE.md` | conventions for Claude Code |
-| `analysis/` | Python + R twins, offline, read‑only |
+| `analysis/` | Python + R twins, offline, read‑only: `01`–`04` football (`data.db`), `05` soccer (`soccer.db`) |
 | `tests/` | pytest unit tests, no network — run `python -m pytest -q tests` |
 | `.github/` | CI workflow + dependabot (Actions weekly; pip security‑only) |
 | `ruff.toml`, `requirements-dev.txt` | lint config and dev deps (ruff, pytest) |
