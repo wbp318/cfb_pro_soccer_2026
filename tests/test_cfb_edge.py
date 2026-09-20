@@ -339,3 +339,28 @@ def test_pick_signals_respects_max_and_report_is_day_aware(tmp_path, monkeypatch
     txt = open(fri, encoding="utf-8").read()
     assert "Friday, September 11, 2026" in txt and "## 0. Picks board" in txt
     assert txt.count("| **STRONG ATS** |") >= ce.MAX_PICKS
+
+
+def test_side_is_home_short_names():
+    h, a = "Missouri State Bears", "Marshall Thundering Herd"
+    assert ce._side_is_home("Missouri State", h, a) is True
+    assert ce._side_is_home("Marshall", h, a) is False
+    assert ce._side_is_home("Missouri State Bears", h, a) is True
+    assert ce._side_is_home("home", h, a) is True and ce._side_is_home("away", h, a) is False
+    # ambiguous (matches both) or unknown -> None, never a silent away grade
+    assert ce._side_is_home("Texas", "Texas Longhorns", "Texas State Bobcats") is None
+    assert ce._side_is_home("Nobody", h, a) is None
+    assert ce._side_is_home("Florida International", "Florida Atlantic Owls",
+                            "Florida International Panthers") is False
+
+
+def test_settle_bets_short_home_name_grades_home(tmp_path, monkeypatch):
+    # regression: 9/19/2026 ledger graded a home ML dog that lost as a W because the
+    # short side name never matched the full home name and fell through to "away"
+    monkeypatch.chdir(tmp_path)
+    conn = ce.db_connect(str(tmp_path / "t.db"))
+    g = make_game(status="post", home_score=24, away_score=30)   # home lost
+    ce.db_persist(conn, [g], dt.datetime.now(UTC))
+    ce.log_bet(g, "ml", "Home", None, +160, 5.0)                 # short form of "Home U"
+    assert ce.settle_bets(conn) == 1
+    assert " L " in ce.show_bets()

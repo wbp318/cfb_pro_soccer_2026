@@ -653,6 +653,27 @@ def log_bet(game: Game, kind: str, side: str, line: Optional[float], price: int,
                     "settled_at": "", "note": note})
 
 
+def _side_is_home(side: str, home: str, away: str) -> Optional[bool]:
+    """Match a ledger side ("Missouri State", "Missouri State Bears", "home") to the
+    home/away team. Prefix and substring both count so the short name the user types
+    matches the full ESPN display name. Ambiguous (matches both) or no match -> None,
+    never a silent guess: the first version of this compared the short name to the
+    full name, never matched, and graded every ticket as the away side."""
+    s = side.strip().lower()
+    if s == "home":
+        return True
+    if s == "away":
+        return False
+    h, a = home.lower(), away.lower()
+    hm = s == h or h.startswith(s) or s in h
+    am = s == a or a.startswith(s) or s in a
+    if hm and not am:
+        return True
+    if am and not hm:
+        return False
+    return None
+
+
 def settle_bets(conn: sqlite3.Connection, path: str = BETS_CSV) -> int:
     if not os.path.exists(path):
         return 0
@@ -671,7 +692,11 @@ def settle_bets(conn: sqlite3.Connection, path: str = BETS_CSV) -> int:
         if kind in ("over", "under"):
             res = _grade(kind, True, _num(r["line"]), hs, as_)
         else:
-            side_is_home = r["side"].strip().lower() in (home.lower(), "home")
+            side_is_home = _side_is_home(r["side"], home, away)
+            if side_is_home is None:
+                print(f"settle: can't match side {r['side']!r} to {away} / {home} "
+                      f"(game {r['game_id']}); left unsettled", file=sys.stderr)
+                continue
             res = _grade(kind, side_is_home, _num(r["line"]), hs, as_)
         r["result"] = res
         r["profit"] = f"{_profit(res, float(r['stake']), int(float(r['price']))):.2f}"
