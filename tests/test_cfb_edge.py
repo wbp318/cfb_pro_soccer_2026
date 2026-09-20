@@ -364,3 +364,33 @@ def test_settle_bets_short_home_name_grades_home(tmp_path, monkeypatch):
     ce.log_bet(g, "ml", "Home", None, +160, 5.0)                 # short form of "Home U"
     assert ce.settle_bets(conn) == 1
     assert " L " in ce.show_bets()
+
+
+# ---------------------------------------------------------------- 2026-09-20 demotions
+
+def test_spread_overreach_caps_at_lean():
+    # Δ 8+ is where FPI is most often wrong (42.5% cover, n=40): never STRONG
+    g = make_game(home_spread=-3.5, fpi_home_margin=12.0)          # Δ 8.5
+    s = ce.spread_signal(g)
+    assert s.edge == pytest.approx(8.5) and s.strength == 1
+    assert "⚠overreach" in ce.findings_warnings(s)
+    g = make_game(home_spread=-3.5, fpi_home_margin=10.0)          # Δ 6.5 still STRONG
+    assert ce.spread_signal(g).strength == 2
+
+
+def test_ml_dead_zone_dog_never_staked():
+    # +100..+150 dogs: 28.8% hit on 59 bets. Edge is there on paper, strength is 0.
+    g = make_game(home_ml=-150, away_ml=+130, fpi_home_p=0.45)     # away fair ~41%, FPI 55%
+    s = ce.ml_signal(g)
+    assert s.side is g.away and s.edge > ce.ML_EDGE_PCT and s.strength == 0
+    assert "⚠dead-zone-dog" in ce.findings_warnings(s)
+    assert ce.stake_for(s, 100.0) is None
+    g = make_game(home_ml=-200, away_ml=+170, fpi_home_p=0.45)     # +170 outside the zone
+    assert ce.ml_signal(g).strength >= 1
+
+
+def test_stakes_banner_says_paper_only():
+    assert ce.LIVE_STAKES is False
+    b = ce.stakes_banner()
+    assert "PAPER ONLY" in b and ce.FINDINGS_AS_OF in b
+    assert b in ce.render_top([make_game(fpi_home_margin=10.0)], 100.0, color=False)

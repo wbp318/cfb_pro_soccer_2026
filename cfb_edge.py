@@ -72,9 +72,12 @@ MIN_TICKET = 1.0
 MAX_TICKET_PCT = 0.05             # hard cap: 5% of bankroll per ticket
 LINE_MOVE_PTS = 3.0               # open->current spread move worth surfacing on its own
 BLOWOUT_SPREAD = 28.0             # numbers this big: cover model is unreliable, cap at lean
+SPREAD_OVERREACH_PTS = 8.0        # |FPI - DK| this big: the market knows something, cap at lean
+ML_DEAD_ZONE = (100, 150)         # ML dogs in this band never staked (30% hit, -33% ROI on 63 bets)
+LIVE_STAKES = False               # no bucket has a 95% CI above zero -> paper only, no real money
 HFA_PTS = 2.5                     # for the rating-diff cross-check only
 
-FINDINGS_AS_OF = "2026-09-09"
+FINDINGS_AS_OF = "2026-09-20"
 
 
 # =====================================================================
@@ -397,6 +400,8 @@ def spread_signal(g: Game) -> Optional[Signal]:
         strength = 0            # FCS side: FPI uses a generic rating, the "edge" is noise
     if abs(mm) >= BLOWOUT_SPREAD:
         strength = min(strength, 1)
+    if edge >= SPREAD_OVERREACH_PTS:
+        strength = min(strength, 1)  # 2025 sample: Δ8+ covered 42.5% — bigger gap, more wrong
     if steam == "against":
         strength = max(strength - 1, 0)
     label = {2: "STRONG ATS", 1: "ATS lean", 0: ""}[strength]
@@ -421,6 +426,8 @@ def ml_signal(g: Game) -> Optional[Signal]:
             strength = 0
         if side.ml > 250:
             strength = min(strength, 1)
+        if ML_DEAD_ZONE[0] <= side.ml <= ML_DEAD_ZONE[1]:
+            strength = 0        # +100..+150 dogs hit 30.2% on 63 bets: worst bucket in the sample
         if g.home.fpi is None or g.away.fpi is None:
             strength = 0        # FCS side: same rule as ATS — never ranked, never staked
         label = {2: "STRONG ML", 1: "ML value", 0: ""}[strength]
@@ -467,6 +474,10 @@ def findings_warnings(sig: Signal) -> list[str]:
     g = sig.game
     if sig.steam == "against":
         w.append("⚠market-moved-against")
+    if sig.kind == "spread" and sig.edge >= SPREAD_OVERREACH_PTS:
+        w.append("⚠overreach")
+    if sig.kind == "ml" and sig.price is not None and ML_DEAD_ZONE[0] <= sig.price <= ML_DEAD_ZONE[1]:
+        w.append("⚠dead-zone-dog")
     if sig.kind == "spread" and sig.side and sig.side.fpi is None:
         w.append("⚠non-FBS side")
     if sig.kind == "ml" and sig.price and sig.price > 250:
@@ -865,11 +876,21 @@ def _pick_row(s: Signal) -> tuple[str, str, str]:
     return play, why, conf
 
 
+def stakes_banner() -> str:
+    """One line that says whether the analysis loop has cleared real money. Printed on
+    every board/report so nobody mistakes a paper stake for a recommendation."""
+    if LIVE_STAKES:
+        return f"STAKES: live — a bucket cleared the analysis loop as of {FINDINGS_AS_OF}"
+    return (f"STAKES: PAPER ONLY as of {FINDINGS_AS_OF} — no bucket has a 95% CI above zero. "
+            "$Bet is what the paper ledger logs, not a recommendation to bet real money.")
+
+
 def render_picks(games: list[Game], bankroll: float, color: bool) -> str:
     picks = pick_signals(games, bankroll)
     if not picks:
-        return "Picks board: no play clears every rule today — that is a valid answer."
-    out = [f"Picks board — {len(picks)} ticket(s) that clear every rule — bankroll ${bankroll:.0f}, 1/4 Kelly"]
+        return stakes_banner() + "\nPicks board: no play clears every rule today — that is a valid answer."
+    out = [stakes_banner(),
+           f"Picks board — {len(picks)} ticket(s) that clear every rule — bankroll ${bankroll:.0f}, 1/4 Kelly"]
     for i, (s, st) in enumerate(picks, 1):
         g = s.game
         kick = g.kick_local.strftime("%a %I:%M%p").lower()
@@ -883,7 +904,8 @@ def render_top(games: list[Game], bankroll: float, color: bool, n: int = 12) -> 
     sigs = ranked_signals(games)[:n]
     if not sigs:
         return "no flagged outliers on this slate"
-    out = [f"Top {len(sigs)} outliers — FPI vs DraftKings — bankroll ${bankroll:.0f}, 1/4 Kelly"]
+    out = [stakes_banner(),
+           f"Top {len(sigs)} outliers — FPI vs DraftKings — bankroll ${bankroll:.0f}, 1/4 Kelly"]
     for i, s in enumerate(sigs, 1):
         g = s.game
         kick = g.kick_local.strftime("%a %I:%M%p").lower()
@@ -934,11 +956,12 @@ def write_report(games: list[Game], bankroll: float, date: dt.date, now: dt.date
          f"**Slate:** {len(games)} games, {len(pre)} not yet kicked, {len(with_fpi)} with both a DK line and an FPI projection  ",
          "**Lines:** DraftKings via ESPN (open → current). **Model:** ESPN FPI game predictor (win prob + predicted margin).",
          "",
-         "> **Honest expectations.** FPI vs the closing line has historically run roughly 50–53% ATS — "
-         "at −110 you need 52.4% just to break even. Nothing here is proven +EV yet. Every flagged play "
-         "is also written to `paper_bets` in `data.db`; the paper ledger (below) is the only thing that will "
-         "tell us whether the FPI-vs-DK gap is real money or noise. Bet small, bet flat-ish, and treat the "
-         "first month as data collection.",
+         f"> **{stakes_banner()}**",
+         ">",
+         "> **Honest expectations.** On 578 settled paper bets (2025 season backfilled + 2026 live) the "
+         "flagged spread side covers 49.3% ATS against a 52.4% break-even, and the bigger the FPI-vs-DK gap "
+         "the worse it does (Δ8+: 42.5%). Every flagged play is written to `paper_bets` in `data.db`; the "
+         "paper ledger (below) and `analysis/` are the only things that can turn stakes back on.",
          "",
          "## 0. Picks board",
          "",

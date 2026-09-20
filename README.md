@@ -14,21 +14,33 @@
 
 ## Before you bet — honest expectations (read this first)
 
-**Nothing in this tool is proven +EV yet.** The settled sample is 96 FBS‑vs‑FBS games
-(weeks 0–2: 51 backfilled + 45 live from 9/12); the analysis loop was last re‑run
-2026‑09‑14 in both runtimes and they agree. Every verdict is *inconclusive*:
+**Nothing in this tool is proven +EV, and as of 2026‑09‑20 the tool says so on every
+board: `STAKES: PAPER ONLY`.** The settled sample is 795 FBS‑vs‑FBS games and 578 paper
+bets (the whole 2025 season backfilled from ESPN's closers + 2026 weeks 0–3 live). The
+analysis loop was re‑run 2026‑09‑20 in both runtimes and they agree to the digit.
 
-| Question (analysis/ script) | Answer so far (n=96 games / 70 paper bets) |
+| Question (analysis/ script) | Answer (n=795 games / 578 paper bets) |
 |---|---|
-| Does the paper ledger make money? (`01`) | Flat ROI **+3.6%**, 95% CI [−22%, +30%] — inconclusive (spread +11.7%, ML −4.6%, both inconclusive) |
-| Is FPI more accurate than the closer? (`02`) | RMSE **15.37 (FPI) vs 15.36 (DK)** — a dead heat, 0.01 pts |
-| Does the FPI side cover? (`02`) | **54.2%** [44, 64] vs 52.4% break‑even — inconclusive |
-| Does following steam work? (`03`) | Moved‑toward side covers **50.9%** [38, 63] — inconclusive |
+| Does the paper ledger make money? (`01`) | Flat ROI **−1.8%**, 95% CI [−11%, +7%] — inconclusive. Spread −5.9%, ML +1.9%, every kind × strength bucket inconclusive |
+| Is FPI more accurate than the closer? (`02`) | RMSE **15.63 (FPI) vs 14.98 (DK)** — the closer wins by 0.65 pts |
+| Does the FPI side cover? (`02`) | **48.4%** [45, 52] vs 52.4% break‑even — below break‑even, and worse the bigger the gap (Δ8+: **41.0%**) |
+| Does following steam work? (`03`) | Moved‑toward side covers **47.6%** [42, 53]. Gating on "steam with FPI" does not help: 47.9% |
+| Where exactly does it lose? (`04`) | STRONG ATS 46.7%; Δ8+ **42.5%**; ML dogs +100..+150 **30.2%** hit, −33% ROI; the model's ML win‑probs run 10–15 pp too high below 60% |
 
-FPI is a real model and public lines are efficient. The realistic prior for "public power
-rating vs closing line" is 50–53% ATS, which at −110 is a coin flip. Treat the first
-month as **data collection**: small flat‑ish tickets, log everything, let the analysis
-loop decide whether any bucket earns a bigger stake.
+FPI is a real model and public lines are efficient. On this sample the market is simply
+more right than FPI, and the plays the tool used to call STRONG are where FPI is *most*
+wrong: the bigger the disagreement, the more likely the market knows something (QB out,
+suspension, weather) that a power rating cannot. So the 2026‑09‑20 rules are:
+
+- **No real‑money stakes** until a bucket's 95% CI clears zero (`LIVE_STAKES = False`).
+  `$Bet` is what the paper ledger logs, not a recommendation.
+- **Δ ≥ 8 is a demotion, not a promotion** (`SPREAD_OVERREACH_PTS`): capped at lean,
+  tagged ⚠overreach.
+- **ML dogs +100 to +150 are never staked** (`ML_DEAD_ZONE`): tagged ⚠dead‑zone‑dog.
+- Line‑move gating stays informational; the data said it earns nothing.
+
+The tool keeps flagging and paper‑logging everything so the sample keeps growing. What
+turns stakes back on is `analysis/`, not a good Saturday.
 
 ---
 
@@ -168,12 +180,13 @@ flowchart TB
         L["_shared/load_data\n.py ⇄ .R"] --> A1["01 paper ROI\nbootstrap CI"]
         L --> A2["02 FPI calibration\nRMSE vs closer · cover % by Δ"]
         L --> A3["03 line move\nfollow-the-money"]
-        A1 & A2 & A3 --> AGREE{"Python == R?"}
+        L --> A4["04 deep dive\nhit % + ROI by edge · price · |spread|\ncalibration"]
+        A1 & A2 & A3 & A4 --> AGREE{"Python == R?"}
     end
 
     subgraph GUARD["4 · Guard rails (no internet, no real data)"]
         direction LR
-        T["tests/\npytest · 42 cases\nodds math · signals · grading · SQLite"]
+        T["tests/\npytest · 47 cases\nodds math · signals · grading · SQLite"]
         CI["GitHub Actions\npy 3.12 + 3.13 · R 4.4\nlint · tests · empty-DB runs"]
     end
 
@@ -182,8 +195,8 @@ flowchart TB
     end
 
     subgraph DOCS["6 · Docs + constants"]
-        K["constants block in cfb_edge.py\nSPREAD_OUTLIER_PTS · MARGIN_SD · STEAM_PTS …\nFINDINGS_AS_OF"]
-        R["README 'Before you bet' table\nbetting_guide.md"]
+        K["constants block in cfb_edge.py\nSPREAD_OUTLIER_PTS · SPREAD_OVERREACH_PTS\nML_DEAD_ZONE · LIVE_STAKES · FINDINGS_AS_OF"]
+        R["README 'Before you bet' table\nbetting_guide.md · CHANGELOG.md"]
     end
 
     SIG -->|"--snapshot / --backfill\nlines + FPI + flagged plays"| DB
@@ -247,9 +260,11 @@ flowchart LR
     LB --> S1["01 paper_roi\nQ: does betting what the tool flags make money?\nflat ROI by kind × strength\n5,000-rep bootstrap 95% CI\nverdict: PROFITABLE / losing / inconclusive"]
     LG --> S2["02 fpi_calibration\nQ-A: when FPI says 70%, do they win 70%? (Wilson bins)\nQ-B: whose margin is closer to the truth — FPI or DK? (RMSE)\nQ-C: does the FPI side cover, by |Δ| bucket? (vs 52.4%)"]
     LG --> S3["03 line_move\nQ-A: does the side the line moved toward cover?\nQ-B: FPI side cover % when steam is WITH vs AGAINST it"]
+    LB --> S4["04 deep_dive\nQ: where exactly does it win and lose?\nhit % + flat ROI by edge band · ML price band\n|spread| · dog/fav · home/away\nmodel truth_p vs actual (calibration)"]
+    LG --> S4
 
-    S1 & S2 & S3 --> OUTC["analysis/_out/*.csv\n(gitignored)"]
-    S1 & S2 & S3 --> STD["stdout tables\nsame numbers in .py and .R"]
+    S1 & S2 & S3 & S4 --> OUTC["analysis/_out/*.csv\n(gitignored)"]
+    S1 & S2 & S3 & S4 --> STD["stdout tables\nsame numbers in .py and .R"]
 ```
 
 The R and Python versions of each script share the same SQL string, the same bins, and the
@@ -279,7 +294,7 @@ flowchart LR
     SIG --> REP["write_report\nreports/WEEKDAY-DATE.md"]
     G --> DB[("data.db\ngames · snapshots · paper_bets")]
     SIG --> DB
-    DB --> AN["analysis/ (Python + R)\n01 paper ROI CI\n02 FPI calibration\n03 line move"]
+    DB --> AN["analysis/ (Python + R)\n01 paper ROI CI\n02 FPI calibration\n03 line move\n04 deep dive"]
     AN -. constants .-> SIG
     BETS[("bets.csv\nreal-money ledger")] --> SET["--settle\ngrades from final scores"]
     DB --> SET
@@ -301,13 +316,18 @@ flowchart TD
     I --> I1["|spread| ≥ 28 → cap at lean\n(cover model unreliable in blowouts)"]
     I --> I2["line moved ≥1.5 pts AGAINST FPI → −1 tier\n⚠market-moved-against"]
     I --> I3["ML dog > +250 → cap at 'ML value'\n⚠long-dog"]
-    I1 & I2 & I3 --> K["Kelly stake = ¼ · Kelly(cover %, price)\ncapped at 5% of bankroll, $1 min"]
+    I --> I4["Δ ≥ 8 → cap at lean\n⚠overreach (FPI is most wrong\nwhere it disagrees most: 42.5% cover)"]
+    I --> I5["ML dog +100..+150 → strength 0\n⚠dead-zone-dog (30% hit on 63 bets)"]
+    I1 & I2 & I3 & I4 & I5 --> K["Paper stake = ¼ · Kelly(cover %, price)\ncapped at 5% of bankroll, $1 min"]
+    K --> LS{"LIVE_STAKES?"}
+    LS -- "False (2026-09-20)" --> PO["STAKES: PAPER ONLY banner\nlogged to paper_bets, no real money"]
+    LS -- "True (needs a CI > 0)" --> RM["real ticket → --bet → bets.csv"]
 ```
 
 | Signal | What it compares | Fires | Stake? |
 |---|---|---|---|
-| **ATS** (`spread_signal`) | FPI predicted margin vs DK spread | Δ ≥ 3 pts (lean), ≥ 5 (STRONG) | yes — cover % = Φ(Δ / 13.5) |
-| **ML** (`ml_signal`) | FPI win prob vs de‑vigged DK moneyline | edge ≥ +8% (value), ≥ +20% (STRONG) | yes — truth p = FPI win prob |
+| **ATS** (`spread_signal`) | FPI predicted margin vs DK spread | Δ ≥ 3 pts (lean), 5 ≤ Δ < 8 (STRONG), Δ ≥ 8 capped at lean (⚠overreach) | paper — cover % = Φ(Δ / 13.5) |
+| **ML** (`ml_signal`) | FPI win prob vs de‑vigged DK moneyline | edge ≥ +8% (value), ≥ +20% (STRONG); +100..+150 dogs never (⚠dead‑zone‑dog) | paper — truth p = FPI win prob |
 | **line move** (`spread_move_signal`) | DK opener vs current | ≥ 3 pts | no — it's news (QB, injury, weather), not a model |
 | **total steam** (`total_move_signal`) | DK total opener vs current | ≥ 2.5 pts | no — there is no totals model here |
 
@@ -331,18 +351,28 @@ flowchart LR
         FP["FPI win % = 80"]
     end
     MK & FM --> D["Δ = 11.6 − 3.5 = 8.1 pts
-→ STRONG (≥ 5), side = home"]
-    D --> CP["cover % = Φ(8.1 / 13.5) = Φ(0.60) ≈ 73%"]
+→ ≥ 5 would be STRONG, but ≥ 8 is ⚠overreach
+→ capped at ATS lean, side = home"]
+    D --> CP["cover % = Φ(8.1 / 13.5) = Φ(0.60) ≈ 73%
+(the model's number — the 2025 sample says
+Δ8+ actually covers 42.5%)"]
     ML --> DV["implied 65.8% / 38.5% → sum 104.2%
 de‑vig: 63.1% / 36.9%"]
     DV & FP --> E["ML edge = (80 − 63) / 63 ≈ +26% → STRONG ML"]
     CP --> K1["Kelly at −115: b = 0.87
 f = (0.73·0.87 − 0.27)/0.87 = 42%
-¼ Kelly = 10.5% → capped at 5% → $5 on $100"]
+¼ Kelly = 10.5% → capped at 5% → $5 paper stake"]
     E --> K2["Kelly at −192: b = 0.52
 f = (0.80·0.52 − 0.20)/0.52 = 42%
-¼ Kelly = 10.4% → capped → $5"]
+¼ Kelly = 10.4% → capped → $5 paper stake"]
+    K1 & K2 --> PO["LIVE_STAKES = False
+→ logged to paper_bets, not a ticket"]
 ```
+
+Syracuse lost 18–21. Under the 2026‑09‑12 rules this was the top play on the board (STRONG
+ATS + STRONG ML + steam with). Under the 2026‑09‑20 rules it is an ATS lean tagged
+⚠overreach and a paper ML stake, and the board says PAPER ONLY above it. That is the whole
+change in one game.
 
 - **Market margin** is just the spread with the sign flipped, from the home team's point of view.
 - **Δ** is the disagreement in points. Sign tells you which side FPI likes; size sets the tier.
@@ -370,19 +400,23 @@ sequenceDiagram
 
     Note over You,An: Tue–Thu
     You->>Tool: python cfb_edge.py --top 15
-    Tool-->>You: ranked outliers, line moves
+    Tool-->>You: STAKES banner (paper only) + ranked outliers, line moves
     Note over You,An: Sat morning
     You->>Tool: --snapshot --report
     Tool->>DB: closing-ish lines + FPI, paper_bets, report .md
     You->>DB: gh release create (freeze the report on GitHub)
-    You->>Tool: --bet ... (each real ticket)
-    Tool->>DB: bets.csv
+    opt only when LIVE_STAKES is True
+        You->>Tool: --bet ... (each real ticket)
+        Tool->>DB: bets.csv
+    end
     Note over You,An: Sun morning
     You->>Tool: --settle
     Tool->>DB: finals → grade paper_bets + bets.csv
-    You->>An: python analysis/…/*.py  and  Rscript analysis/…/*.R
+    You->>An: python analysis/…/*.py  and  Rscript analysis/…/*.R (all four)
     An-->>You: same numbers twice, or a bug
-    You->>Tool: update constants (thresholds, MARGIN_SD), bump FINDINGS_AS_OF
+    An-->>You: 04 deep dive — which bucket a rule change would actually touch
+    You->>Tool: update constants (thresholds, demotions, LIVE_STAKES), bump FINDINGS_AS_OF
+    You->>DB: CHANGELOG.md entry + README table, commit, push, release
 ```
 
 `snapshot.bat` is the Task‑Scheduler wrapper: run it every 2–4 h Friday/Saturday so the DB
@@ -516,8 +550,9 @@ flowchart LR
     L1 & L2 --> S1["01 paper ROI + bootstrap CI\nby kind × strength"]
     L1 & L2 --> S2["02 FPI calibration\nWilson bins · RMSE vs closer · cover % by Δ"]
     L1 & L2 --> S3["03 line move\nfollow-the-money · steam with/against FPI"]
-    S1 & S2 & S3 --> V{"Py == R ?"}
-    V -- yes --> C["update constants in cfb_edge.py\nSPREAD_OUTLIER_PTS · MARGIN_SD · STEAM_PTS …\nbump FINDINGS_AS_OF"]
+    L1 & L2 --> S4["04 deep dive\nhit % + ROI by edge band · price band\n|spread| · dog/fav · home/away · calibration"]
+    S1 & S2 & S3 & S4 --> V{"Py == R ?"}
+    V -- yes --> C["update constants in cfb_edge.py\nSPREAD_OUTLIER_PTS · SPREAD_OVERREACH_PTS\nML_DEAD_ZONE · LIVE_STAKES · bump FINDINGS_AS_OF\n+ CHANGELOG.md entry"]
     V -- no --> BUG["fix the runtime that's wrong"]
 ```
 
@@ -607,12 +642,14 @@ pip install -r analysis/requirements-py.txt
 python analysis/01_paper_roi_ci/paper_roi.py
 python analysis/02_fpi_calibration/fpi_calibration.py
 python analysis/03_line_move/line_move.py
+python analysis/04_deep_dive/deep_dive.py
 
 # R (install packages once; see the PATH diagram above)
 Rscript -e 'install.packages(readLines("analysis/requirements-r.txt"), repos="https://cloud.r-project.org")'
 Rscript analysis/01_paper_roi_ci/paper_roi.R
 Rscript analysis/02_fpi_calibration/fpi_calibration.R
 Rscript analysis/03_line_move/line_move.R
+Rscript analysis/04_deep_dive/deep_dive.R
 ```
 
 Outputs land in `analysis/_out/` (gitignored). See [`analysis/README.md`](analysis/README.md).
@@ -631,13 +668,13 @@ flowchart LR
     PUSH --> RJ["R job\n(r-lib/actions, R 4.4)"]
     PY --> P1["py_compile\ncfb_edge.py + analysis/*.py"]
     P1 --> P2["ruff check\n(rule set pinned in ruff.toml)"]
-    P2 --> PT["pytest tests/\n42 cases · no network"]
+    P2 --> PT["pytest tests/\n47 cases · no network"]
     PT --> P3["cfb_edge.py --help\n(argparse still parses)"]
     P3 --> P4["--paper-show --db scratch.db\n(SCHEMA + MIGRATIONS bootstrap)"]
-    P4 --> P5["run all 3 analysis .py\nagainst the empty scratch DB\nCFB_DB env var"]
+    P4 --> P5["run all 4 analysis .py\nagainst the empty scratch DB\nCFB_DB env var"]
     RJ --> R1["install DBI · RSQLite · dplyr · boot"]
     R1 --> R2["bootstrap the same scratch DB\nwith the Python tool"]
-    R2 --> R3["run all 3 analysis .R\nagainst it"]
+    R2 --> R3["run all 4 analysis .R\nagainst it"]
     P5 & R3 --> OK{"green?"}
     OK -- yes --> M["merge / it's safe to run Saturday"]
     OK -- no --> FIX["fix the code, not the check"]
