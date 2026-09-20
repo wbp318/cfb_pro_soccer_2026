@@ -54,15 +54,20 @@ ELO_K_FRIENDLY = 10.0             # friendlies / pre-season: half weight
 ELO_HFA = 60.0                    # home advantage in Elo points (neutral sites: 0)
 ELO_MIN_MATCHES = 8               # fewer rated matches on either side -> unrated, never staked
 DRAW_BASE = 0.26                  # P(draw) when the sides are equal; shrinks as they diverge
-ML_EDGE_PCT = ce.ML_EDGE_PCT      # same tiers as CFB ML: +8% value, +20% STRONG
-ML_STRONG_PCT = ce.ML_STRONG_PCT
+# Tiers INVERTED on 2026-09-20 (analysis/05, 287 bets): hit rate falls monotonically with edge
+# (8-15%: 44%, 15-20%: 34%, 20-30%: 33%, 30-50%: 28%, 50%+: 23%). Small disagreements with
+# the closer are the only band near break-even; big ones are where the market knows something.
+ML_EDGE_PCT = 8.0                 # below this: no tag
+EDGE_STRONG_MAX = 15.0            # [8, 15)  -> STRONG 3W   (the only band with positive flat ROI)
+EDGE_VALUE_MAX = 20.0             # [15, 20) -> 3W value
+EDGE_OVERREACH_PCT = 20.0         # >= 20    -> strength 0, ⚠overreach (n=177, 29% hit, -13% ROI)
 ML_MAX_PRICE = ce.ML_MAX_PRICE
 ML_MIN_PRICE = ce.ML_MIN_PRICE
-ML_LONG_DOG = 250                 # beyond this a dog is capped at "value"
+ML_LONG_DOG = 250                 # dogs beyond this: strength 0 (n=95, 21% hit); was "cap at value"
 PROB_MOVE_PP = 5.0                # open->current implied-prob move worth surfacing
 TOTAL_MOVE = 0.5                  # goals
 ELO_BUILD_SINCE = "2025-07-01"    # default first day of results for --build-elo
-FINDINGS_AS_OF = "2026-09-20"     # analysis/05 first run: HFA 60 / DRAW_BASE 0.26 = grid optimum on 39,583 results
+FINDINGS_AS_OF = "2026-09-20"     # analysis/05 (287 bets): tiers inverted, HFA 60 / DRAW_BASE 0.26 = grid optimum
 
 
 # =====================================================================
@@ -384,12 +389,19 @@ def ml3_signal(m: Match) -> Optional[Signal]:
         edge = (p - fair) / fair * 100.0
         if edge <= 0:
             continue
-        strength = 2 if edge >= ML_STRONG_PCT else 1 if edge >= ML_EDGE_PCT else 0
-        note = ""
+        if edge < ML_EDGE_PCT:
+            strength = 0
+        elif edge < EDGE_STRONG_MAX:
+            strength = 2
+        elif edge < EDGE_VALUE_MAX:
+            strength = 1
+        else:
+            strength = 0
+        note = "⚠overreach" if edge >= EDGE_OVERREACH_PCT else ""
         if price > ML_MAX_PRICE or price < ML_MIN_PRICE:
             strength = 0
         if price > ML_LONG_DOG:
-            strength = min(strength, 1)
+            strength = 0
             note = "⚠long-dog"
         if pick == "draw":
             strength = min(strength, 1)       # draw mass is the model's weakest assumption
@@ -696,9 +708,9 @@ def write_report(matches: list[Match], bankroll: float, date: dt.date, now: dt.d
         L.append("| — | — | — | — | no flagged outliers | | | | |")
     L += ["", "## 2. Full board", "", "```", render_board(matches, bankroll), "```", "",
           "## 3. Soccer paper ledger to date", "", "```", paper_summary, "```", "",
-          "> Paper only. analysis/05 (Python == R) on the first 229 backfilled bets: flat ROI −9.6%, "
-          "edge 8-15% hits 47%, edge 50%+ hits 24%, the de-vigged closer beats Elo on log-loss. Draw "
-          "picks are capped at value because the draw split is the model's weakest assumption."]
+          "> Paper only. analysis/05 (Python == R) on 287 bets: flat ROI −9.6%; hit rate falls with edge "
+          "(8-15%: 44%, 50%+: 23%), so the tiers are inverted — small edges STRONG, ≥ 20% demoted. "
+          "Dogs past +250 and draws are never staked. The de-vigged closer beats Elo on log-loss."]
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(L) + "\n")
     return path

@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository.
 
 ## What this is
 
-Two Python tools. `cfb_edge.py` pulls the Saturday college football slate
+Three Python tools, all paper only. `cfb_edge.py` pulls the Saturday college football slate
 from ESPN's public endpoints, compares the DraftKings line to ESPN FPI's game projection,
 flags outliers, tracks open→current line movement, suggests quarter-Kelly stakes, and
 persists everything to SQLite for an honest backtest. Sister project of
@@ -29,6 +29,11 @@ python soccer_edge.py                     # today's soccer board, every league
 python soccer_edge.py --snapshot --report # persist + paper-log + reports/soccer-<weekday>-<date>.md
 python soccer_edge.py --date 2026-09-13 --backfill   # closers + Elo-as-of for a past day
 
+python nhl_edge.py --build                # rosters + game logs (2025-26, 2026-27) -> nhl.db
+python nhl_edge.py --calibrate            # walk-forward projection test on last season
+python nhl_edge.py --date 2026-10-07 --snapshot --report   # needs ODDS_API_KEY in .env (gitignored)
+python nhl_edge.py --settle               # grade pending props from boxscores
+
 python analysis/01_paper_roi_ci/paper_roi.py      # and the .R twin via Rscript
 ```
 
@@ -38,7 +43,7 @@ scripts in both Python and R against empty DBs via the `CFB_DB` / `CFB_SOCCER_DB
 `ruff check cfb_edge.py cfb_gui.py analysis tests` and `python -m pytest -q tests` before pushing.
 `ruff.toml` pins the rule set (E4/E7/E9/F) so a ruff upgrade in CI can't move the goalposts.
 
-**Unit tests** live in `tests/test_cfb_edge.py` (47 cases, no network): odds math, every
+**Unit tests** live in `tests/test_cfb_edge.py` (47 football cases + 18 soccer + 12 NHL = 77, no network): odds math, every
 signal function including the demotions (FCS, blowout, steam-against, long-dog, overreach,
 ML dead zone), the paper-only banner, Kelly cap,
 ranking order, `_grade`/`_profit` for spread/ML/total, a full SQLite persist → paper-log →
@@ -65,6 +70,20 @@ sharper than Elo, bigger edge → worse hit. The Elo replay in 05 duplicates `el
 purpose (both runtimes need it); keep them identical.
 Tests: `tests/test_soccer_edge.py` (18 cases, no network). `soccer.db` and
 `soccer_leagues.json` are gitignored.
+
+**`nhl_edge.py` is the NHL player-prop tool** (added 2026-09-20 for 2026-27). Model: per-game
+rates from NHL public game logs in `nhl.db` (`--build`), shrunk toward last season, tilted
+to the last 10 games, × opponent shots/goals allowed vs league (clamped), → Poisson P(over).
+Lines: The Odds API (`ODDS_API_KEY` env or `.env`) or `--lines-file` CSV; DraftKings' own
+API 403s. Markets: SOG, PTS, G, A, BLK, PPP, goalie SV. Demotions: ⚠overreach ≥ +30% (prior
+from CFB + soccer), ⚠thin < 10 games, ⚠saves-model (saves capped at value: `--calibrate`
+shows the goalie model barely beats naive), ⚠not-starter. `--settle` grades from boxscores
+and stores blocked shots there (game logs lack them). No NHL analysis run exists; every
+constant is a prior. Tests: `tests/test_nhl_edge.py` (12 cases). Never commit `nhl.db`/`.env`.
+
+**Soccer tiers are inverted** (2026-09-20, analysis/05 on 287 bets): +8..15% STRONG,
++15..20% value, ≥ +20% strength 0 ⚠overreach; dogs > +250 strength 0. Hit rate fell
+monotonically with edge (44% → 23%). Draws never reach a stake in practice.
 
 **Everything football is in `cfb_edge.py`** (~1,000 lines). `cfb_gui.py` is a stdlib `http.server`
 dashboard that imports it; it must never recompute a signal or duplicate a rule — add
@@ -138,14 +157,14 @@ bump `FINDINGS_AS_OF`, update the "Before you bet" table in README.md, commit + 
   current with the latest analysis run.
 - `CHANGELOG.md` gets an entry for every rule/constant change and every fix, citing the
   analysis run that justified it. Weekly report releases are not changelog entries.
-- Every commit gets pushed in the same step. Remote: `github.com/wbp318/cfb_pro_soccer_2026`
-  (renamed from `cfb_2026` on 2026-09-20; GitHub redirects the old name). The local folder is
-  still `C:\Users\wbp31\cfb_2026` on purpose — the scheduled task and the Claude memory dir
-  point at it.
+- Every commit gets pushed in the same step. Remote: `github.com/wbp318/cfb_soccer_nhl_2026_2027`
+  (renamed from `cfb_2026` → `cfb_pro_soccer_2026` → this, all on 2026-09-20; GitHub redirects
+  the old names). The local folder is still `C:\Users\wbp31\cfb_2026` on purpose — the
+  scheduled task and the Claude memory dir point at it.
 - `main` is protected (set 2026-09-09): no force-push, no deletion, the three CI checks must
   pass; the owner (admin) can bypass the check requirement. Never `push --force` to main;
   if history needs rewriting, do it on a branch and open a PR.
-- Do not commit `data.db`, `soccer.db`, `soccer_leagues.json`, `bets.csv`, `snapshot.log`,
-  `analysis/_out/` (gitignored).
+- Do not commit `data.db`, `soccer.db`, `nhl.db`, `soccer_leagues.json`, `bets.csv`, `.env`,
+  `snapshot.log`, `analysis/_out/` (gitignored). Never print or paste the Odds API key.
 - `.gitattributes` marks every language linguist-detectable on purpose.
 - Honesty in the README is load-bearing. Don't soften "inconclusive" into "promising".

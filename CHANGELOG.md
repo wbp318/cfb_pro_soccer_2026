@@ -4,6 +4,50 @@ All notable changes to `cfb_edge.py` and the analysis loop. Rule changes cite th
 run that justified them; nothing in the constants block changes without one. Weekly report
 releases (`<weekday>-<date>` tags) are not listed here; see the GitHub releases page.
 
+## [2026-09-20e] — NHL player-prop module, repo renamed to cfb_soccer_nhl_2026_2027
+
+### Added
+- **`nhl_edge.py`** for the 2026-27 season: skater SOG / PTS / G / A / BLK / PPP and goalie
+  SV props. `--build` stores rosters (32 clubs, 1,286 players) and game logs for 2025-26 and
+  2026-27 from the NHL public API (46,551 rows). Projection = current-season rate shrunk to
+  last season (20 games) with a 35% tilt to the last 10, × opponent shots/goals allowed vs
+  league (clamped 0.80–1.20), × 1.02 at home → Poisson P(over), push-conditioned on whole
+  lines. Lines from The Odds API (`ODDS_API_KEY` env / `.env`) or `--lines-file` CSV;
+  DraftKings' API returns 403. Signals +8% value / +15% STRONG / ≥ +30% ⚠overreach;
+  ⚠thin < 10 games; ⚠saves-model caps goalie saves at value; ⚠not-starter. `--settle`
+  grades from boxscores (PPP from the game log) and stores blocked shots.
+- **`--calibrate`**: walk-forward on 2025-26 with no prior season (harder than live). Shots
+  over 2.5: log-loss 0.4742 vs naive 0.5397, bins within 2 pp. Points over 0.5: 0.6097 vs
+  0.6543. Saves over 27.5: 0.6131 vs 0.6162 — barely better, miscalibrated at both ends,
+  hence the cap. No historical prop prices exist, so ROI is untested until the season.
+- `tests/test_nhl_edge.py` (12 cases, no network); CI compiles, lints, tests, `--help`s and
+  bootstraps `nhl_ci.db`. Opening-night projections report `reports/nhl-wednesday-2026-10-07.md`.
+
+### Changed
+- Repo renamed **`cfb_pro_soccer_2026` → `cfb_soccer_nhl_2026_2027`** (GitHub redirects).
+  Local folder unchanged. Repo description updated.
+- README: title, intro, quick start, clone URL, overview diagram (NHL subgraph), new "NHL
+  player props" section with flags, data-source, worked-projection, ER and weekly diagrams
+  plus the calibration table; files and roadmap. `CLAUDE.md`, `betting_guide.md` (new §5
+  soccer, §6 NHL), `analysis/README.md`.
+
+## [2026-09-20d] — Soccer strategy inverted: small edges only
+
+Sunday 2026-09-20 live: 58 settled soccer paper plays went 16-42 (−$17.71 on $123). Re-ran
+`analysis/05` on 287 bets (Python == R).
+
+### Changed (rules — from analysis/05, 287 bets)
+- **Tiers inverted.** `[8%, 15%)` → STRONG 3W (44% hit, +3.4% flat, n=66 — the only band
+  near break-even); `[15%, 20%)` → 3W value (34%); `≥ 20%` → strength 0, ⚠overreach
+  (n=177, 29% hit, −13%). Hit rate fell monotonically with edge across five bands, the same
+  shape football's Δ8+ showed. Constants: `EDGE_STRONG_MAX`, `EDGE_VALUE_MAX`,
+  `EDGE_OVERREACH_PCT`; `ML_STRONG_PCT` removed.
+- **Dogs beyond +250 never staked** (95 bets, 21% hit, −12%); was "cap at value".
+- Draws: unchanged rule, but with the model's 26% draw ceiling a draw only shows edge past
+  +250, so draws are never staked in practice. Test renamed to say so.
+- `ELO_HFA` / `DRAW_BASE` unchanged (grid optimum). Tests updated (fixture default now sits
+  in the STRONG band). README soccer status table and signal diagram updated.
+
 ## [2026-09-20c] — analysis/05: the soccer analysis loop (Python + R)
 
 ### Added

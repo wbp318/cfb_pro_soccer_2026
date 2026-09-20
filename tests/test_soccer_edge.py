@@ -15,7 +15,7 @@ UTC = dt.timezone.utc
 
 
 def make_match(*, home_ml=+120, draw_ml=+240, away_ml=+220, home_ml_open=None, draw_ml_open=None,
-               away_ml_open=None, home_elo=1600.0, away_elo=1500.0, home_n=20, away_n=20,
+               away_ml_open=None, home_elo=1520.0, away_elo=1500.0, home_n=20, away_n=20,
                total=2.5, total_open=None, status="pre", home_score=None, away_score=None,
                neutral=False, league="eng.1") -> se.Match:
     home = se.Side(id="h1", abbr="HOM", name="Home FC", score=home_score, ml=home_ml, ml_open=home_ml_open,
@@ -74,13 +74,19 @@ def test_k_for_friendlies_is_half():
 
 # ---------------------------------------------------------------- signals
 
-def test_ml3_signal_flags_home_edge_and_stakes():
-    # fair home ~ 41%; model with 1600 vs 1500 + HFA ~ 60% -> STRONG on home
-    m = make_match()
+def test_ml3_signal_inverted_tiers():
+    # 2026-09-20: small edges are STRONG, big edges are demoted. fair home ~ 41%.
+    m = make_match(home_elo=1600.0)                          # model ~60% -> edge ~ +45% -> overreach
     s = se.ml3_signal(m)
-    assert s.kind == "ml3" and s.pick == "home" and s.strength == 2 and s.price == 120
-    assert s.pick_name == "Home FC"
-    assert se.stake_for(s, 100.0) is not None
+    assert s.kind == "ml3" and s.pick == "home" and s.strength == 0 and s.note == "⚠overreach"
+    assert se.stake_for(s, 100.0) is None
+    m = make_match()                                         # 1520 vs 1500: ~46% vs fair 41% -> +12% -> STRONG
+    s = se.ml3_signal(m)
+    assert s.pick == "home" and 8 <= s.edge < 15 and s.strength == 2 and s.price == 120
+    assert s.pick_name == "Home FC" and se.stake_for(s, 100.0) is not None
+    m = make_match(home_elo=1535, away_elo=1500)             # ~+17% -> value
+    s = se.ml3_signal(m)
+    assert 15 <= s.edge < 20 and s.strength == 1
 
 
 def test_ml3_unrated_side_never_staked():
@@ -89,11 +95,13 @@ def test_ml3_unrated_side_never_staked():
     assert s.strength == 0 and s.note == "⚠unrated" and se.stake_for(s, 100.0) is None
 
 
-def test_ml3_draw_pick_capped_at_value():
-    # make the draw the value: equal sides, market prices draw long
-    m = make_match(home_ml=+150, draw_ml=+400, away_ml=+150, home_elo=1500, away_elo=1560)
+def test_ml3_draw_pick_never_staked_in_practice():
+    # a draw only shows model edge when the market prices it beyond +250 (DRAW_BASE caps the
+    # model at 26%), and dogs beyond +250 are strength 0 -> draws are shown, never staked
+    m = make_match(home_ml=+150, draw_ml=+330, away_ml=+150, home_elo=1500, away_elo=1560)
     s = se.ml3_signal(m)
-    assert s.pick == "draw" and s.strength == 1 and "⚠draw-model" in se.warnings_for(s)
+    assert s.pick == "draw" and s.strength == 0 and "⚠draw-model" in se.warnings_for(s)
+    assert se.stake_for(s, 100.0) is None
 
 
 def test_ml3_long_dog_and_price_limits():
@@ -102,7 +110,7 @@ def test_ml3_long_dog_and_price_limits():
     assert s.pick == "away" and s.strength == 0                     # +900 beyond ML_MAX_PRICE
     m = make_match(home_ml=-250, draw_ml=+350, away_ml=+300, home_elo=1500, away_elo=1600)
     s = se.ml3_signal(m)
-    assert s.pick == "away" and s.strength == 1 and s.note == "⚠long-dog"
+    assert s.pick == "away" and s.strength == 0 and s.note == "⚠long-dog"   # >+250: 21% hit, never staked
 
 
 def test_ml3_none_without_prices_or_model():

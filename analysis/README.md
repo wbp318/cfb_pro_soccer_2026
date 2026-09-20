@@ -65,6 +65,8 @@ soccer_edge.py (05)
   flat ROI by edge band, ML price band, |spread|, dog/fav, home/away, and model truth_p vs
   actual. This is the "simulate before you change a rule" script; it produced the 2026-09-20
   demotions (`SPREAD_OVERREACH_PTS`, `ML_DEAD_ZONE`) and `LIVE_STAKES = False`.
+- *(planned)* `06_nhl/` — over `nhl.db` once the prop ledger has a few hundred rows: ROI by
+  market × side × edge band, calibration against posted lines. Not before then.
 - `05_soccer/` — the whole loop for `soccer_edge.py` in one script: A. 3-way paper ROI by
   pick × strength with bootstrap CI; B. slices by edge band, price band, pick; C. Elo
   calibration (binned model prob vs observed) and 3-way log-loss vs the de-vigged closer;

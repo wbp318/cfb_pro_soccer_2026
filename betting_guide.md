@@ -59,7 +59,34 @@ that used to sit here (Syracuse −3.5, Δ 8.1; Middle Tennessee +13.5, Δ 9.3) 
 - Default bankroll in the tool is $100; pass `--bankroll` for yours.
 - Log every real ticket with `--bet` the moment you place it. Run `--settle` Sunday.
 
-## 5. Discipline — the horses lessons carry over
+## 5. Soccer (`soccer_edge.py`) — the inverted ladder
+
+- **Only small disagreements get a paper stake.** Elo vs the de-vigged DK three-way:
+  +8% to +15% is STRONG 3W, +15% to +20% is 3W value, ≥ +20% is ⚠overreach and never staked.
+  On 287 bets the hit rate fell in every band as the edge grew (44% → 34% → 33% → 28% → 23%).
+- **Dogs beyond +250: never** (21% hit on 95). **Draws: shown, never staked** — the model's
+  draw ceiling is 26%, so a draw only shows edge when the book prices it past +250.
+- **⚠unrated** (either side has < 8 results in the table): never.
+- Board columns: `DK H/D/A`, `Elo H/A`, `Model H/D/A`. The STRONG rows are the ones where the
+  model and the market *almost* agree.
+
+## 6. NHL props (`nhl_edge.py`) — 2026-27, paper from opening night
+
+- **What is projected:** shots, points, goals, assists, blocks, PP points, goalie saves. Rate
+  = this season shrunk to last season (20 games), 35% tilt to the last 10, × opponent
+  shots/goals allowed vs league (0.80–1.20), × 1.02 at home → Poisson P(over).
+- **Trust order:** shots and points (walk-forward log-loss beats naive by 0.066 / 0.045, bins
+  within 2 pp) → goals / assists / PPP (same machinery, not separately tested) → **saves
+  last** (barely beats naive; capped at value, ⚠saves-model).
+- **Tiers:** +8% value, +15% STRONG, ≥ +30% ⚠overreach never staked (borrowed from what CFB
+  and soccer both showed). Price window −250..+250. ⚠thin (< 10 games) never. Goalie flagged
+  ⚠not-starter never — check the confirmed starter yourself two hours before puck drop.
+- **Lines:** `.env` with `ODDS_API_KEY=…` (free tier ~500 requests/month; a 10-game night
+  costs 11) or `--lines-file` CSV. Without lines the tool prints projections and logs nothing.
+- **No historical prop prices exist**, so there is no ROI backtest. The ledger starts empty on
+  2026-10-07 and `analysis/06` gets built when it has a few hundred props.
+
+## 7. Discipline — the horses lessons carry over
 
 - **No signal has beaten a market until the backtest says so** with a confidence interval
   that clears zero. On 795 games and 578 paper bets nothing does; the flagged spread side is
