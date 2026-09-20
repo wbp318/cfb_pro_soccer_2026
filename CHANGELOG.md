@@ -30,6 +30,8 @@ releases (`<weekday>-<date>` tags) are not listed here; see the GitHub releases 
   player props" section with flags, data-source, worked-projection, ER and weekly diagrams
   plus the calibration table; files and roadmap. `CLAUDE.md`, `betting_guide.md` (new §5
   soccer, §6 NHL), `analysis/README.md`.
+- Diagrams: overview guard-rail and CI blocks now say 77 tests (47 football · 18 soccer ·
+  12 NHL) and list all three modules in the compile step. 27 Mermaid blocks parse.
 
 ## [2026-09-20d] — Soccer strategy inverted: small edges only
 
