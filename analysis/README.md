@@ -13,6 +13,44 @@ in the last digit (different RNG streams); Wilson intervals are closed-form and 
 
 ## Layout
 
+```mermaid
+flowchart LR
+    subgraph FB["football — data.db"]
+        LD["_shared/load_data.{py,R}
+load_games() · load_paper_bets() · wilson()"]
+        LD --> S1["01_paper_roi_ci
+flat ROI by kind × strength
+bootstrap 95% CI"]
+        LD --> S2["02_fpi_calibration
+FPI win-prob bins · RMSE vs closer
+cover % by |Δ|"]
+        LD --> S3["03_line_move
+follow-the-money
+steam with / against FPI"]
+        LD --> S4["04_deep_dive
+hit % + ROI by edge · price · |spread|
+dog/fav · home/away · calibration"]
+    end
+    subgraph SC["soccer — soccer.db"]
+        LS["_shared/load_soccer.{py,R}
+load_soccer_bets() · load_soccer_matches()
+load_results()"]
+        LS --> S5["05_soccer
+A 3-way ROI · B slices
+C Elo calibration + log-loss vs closer
+D ELO_HFA × DRAW_BASE refit"]
+    end
+    S1 & S2 & S3 & S4 & S5 --> OUT["_out/*.csv (gitignored)
++ stdout tables"]
+    OUT --> V{"Py == R?"}
+    V -- yes --> K["constants block:
+cfb_edge.py (01–04)
+soccer_edge.py (05)
++ FINDINGS_AS_OF + CHANGELOG.md"]
+    V -- no --> BUG["fix the wrong runtime"]
+```
+
+
 - `_shared/load_data.{py,R}` — `load_games()` (one row per settled FBS-vs-FBS game with the
   last-snapshot line and pre-game FPI) and `load_paper_bets()`; `wilson()` helper.
 - `_shared/load_soccer.{py,R}` — the soccer twin over `soccer.db`: `load_soccer_bets()`,

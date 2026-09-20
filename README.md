@@ -259,10 +259,10 @@ flowchart TD
 
     BRANCH -->|"--snapshot"| S1["db_persist: games + snapshots rows"] --> S2["db_paper_log: every strength≥1 play\nwith truth_p, price, stake"] --> RENDER
     BRANCH -->|"--backfill (past date)"| BF["same as --snapshot but games are final:\n'current' = closer · FPI = game-morning run\npaper_bets.backfill = 1"] --> ST
-    BRANCH -->|"--settle"| ST["db_persist (scores) →\ndb_settle_paper: grade W/L/P + profit\nsettle_bets: grade bets.csv"] --> END
+    BRANCH -->|"--settle"| ST["db_persist (scores) →\ndb_settle_paper: grade W/L/P + profit\nsettle_bets: grade bets.csv via _side_is_home\n(prefix/substring match; ambiguous → left unsettled)"] --> END
     BRANCH -->|"default / --top / --flagged / --picks"| RENDER
 
-    RENDER["for each game:\nspread_signal · ml_signal\nspread_move_signal · total_move_signal"] --> R1["render_board (all games)\nor render_top (ranked, strength → steam → edge)"]
+    RENDER["for each game:\nspread_signal · ml_signal\nspread_move_signal · total_move_signal\n(demotions: FCS · blowout · steam-against\n⚠overreach · ⚠dead-zone-dog · long-dog)"] --> R1["render_board (all games)\nor render_top / render_picks (ranked, strength → steam → edge)\nboth start with stakes_banner() → PAPER ONLY"]
     R1 --> REP{"--report?"}
     REP -->|yes| W["write_report → reports/WEEKDAY-DATE.md"] --> END
     REP -->|no| END((done))
@@ -550,6 +550,9 @@ erDiagram
 price, stake, result, profit, settled_at, note`. It is a plain CSV so you can open it in
 Excel, but let `--settle` fill `result`/`profit` rather than typing them.
 
+The soccer database has the same shape plus a `results` table; its diagram is in the
+[Pro soccer](#what-the-soccer-database-stores) section.
+
 Every `--snapshot` adds a **new** row to `snapshots` rather than updating, so the table is a
 time series of the line. `analysis/_shared/load_data` takes the last row per game as "the
 closer"; the first row is your best proxy for "where you could have bet". The gap between the
@@ -813,6 +816,261 @@ flowchart TD
 | `--date D --backfill` | past date: closers + Elo‑as‑of, paper‑log with `backfill=1`, settle |
 | `--elo-show N` | print the top‑N Elo table |
 | `--paper-show` | soccer paper ledger by pick × strength |
+
+
+### Inside `soccer_edge.py` — what each flag does
+
+```mermaid
+flowchart TD
+    START["python soccer_edge.py [flags]"] --> ARGS{"which flag?"}
+
+    ARGS -->|"--paper-show"| PS["open soccer.db\nprint paper_bets by pick × strength"] --> END
+    ARGS -->|"--elo-show N"| ES["elo_as_of(date+1): replay results table\nprint top-N teams with match counts"] --> END
+    ARGS -->|"--build-elo [--since D]"| BE["for every day since → date\nnot yet in results_log:\nfetch_slate(day) → store_results()\n(final scores only; ratings never stored)"] --> BE2["print stored count +\nempirical draw rate vs DRAW_BASE"] --> END
+
+    ARGS -->|"anything else"| L0["league_map()\n219 ESPN league refs → id → slug/name\ncached in soccer_leagues.json"]
+    L0 --> F1["fetch_slate(date)\nsoccer/all/scoreboard → every match, every league\nteams · kickoff · status · scoreboard 3-way ML · total"]
+    F1 --> F1b{"--league a,b?"}
+    F1b -->|yes| F1c["keep those slugs"] --> F2
+    F1b -->|no| F2["enrich_odds()\n16 threads, one core-odds call per match\nopen / current / close for home·draw·away ML,\nAsian spread, total\n(finished match: 'close' becomes current)"]
+    F2 --> F3["elo_as_of(date)\nreplay every stored result strictly before date"]
+    F3 --> F4["apply_elo()\nElo + n per side · elo_probs → P(home) P(draw) P(away)\nno rating on a side → win_p None (⚠unrated)"]
+    F4 --> BRANCH{"flag?"}
+
+    BRANCH -->|"--snapshot"| S1["db_persist: matches + snapshots rows\n(backfill = 0)"] --> S2["db_paper_log: every ml3 play with strength ≥ 1\npick · price · truth_p · edge · stake"] --> RENDER
+    BRANCH -->|"--backfill (past date)"| BF["store_results (finals)\ndb_persist with backfill = 1\n('current' odds are the closers, Elo is as-of)\ndb_paper_log(ranked_signals_all) backfill = 1"] --> ST
+    BRANCH -->|"--settle"| ST["store_results → db_update_scores →\ndb_settle_paper: grade3 W/L + profit\nprint summary"] --> END
+    BRANCH -->|"default / --top / --flagged"| RENDER
+
+    RENDER["for each pre-kick match:\nml3_signal · prob_move_signal · total_move_signal"] --> R1["render_board (every match, every league)\n+ render_top (ranked: strength → kind → edge)\nboth start with stakes_banner()"]
+    R1 --> REP{"--report?"}
+    REP -->|yes| W["write_report → reports/soccer-WEEKDAY-DATE.md\nleagues priced · ranked table · full board · paper ledger"] --> END
+    REP -->|no| END((done))
+```
+
+### Where the soccer data comes from
+
+```mermaid
+flowchart LR
+    subgraph ESPN["ESPN (keyless, UA = Mozilla/5.0)"]
+        LG["core: /soccer/leagues?limit=1000\n219 league refs\n→ id · slug · name"]
+        SB["site: /soccer/all/scoreboard?dates=YYYYMMDD\nevery match that day, every league\nuid s:600~l:LEAGUE_ID~e:EVENT_ID\ncompetitors · status · scoreboard odds"]
+        CO["core: /leagues/SLUG/events/ID/competitions/ID/odds/100\nDraftKings record per match\nhomeTeamOdds / awayTeamOdds:\n  open · current · close × {moneyLine, pointSpread, spread}\ntop level: open · current · close × {draw, total, over, under}"]
+    end
+    LG -->|"once, cached"| MAP["soccer_leagues.json\n{ '700': {slug: 'eng.1', name: 'English Premier League'}, … }"]
+    SB --> SLATE["list[Match]\nleague slug via uid → map\nhome/away Side objects"]
+    MAP --> SLATE
+    SLATE --> CO
+    CO --> ODDS["Side.ml / ml_open / spread / spread_open / spread_price\nMatch.draw_ml / draw_ml_open / total / total_open\n'EVEN' → +100"]
+    SLATE -->|"finished matches"| RES[("results\nid · date · league · home_id · away_id\nhome_score · away_score · neutral")]
+    RES -->|"replayed chronologically\nevery run, never stored"| ELO["ratings dict\nteam_id → [elo, n]"]
+    ELO --> PROBS["elo_probs()\nP(home) · P(draw) · P(away)"]
+    ODDS --> SIGS["ml3_signal\nprob_move_signal\ntotal_move_signal"]
+    PROBS --> SIGS
+```
+
+A missing predictor is the whole reason the module builds its own model. Two things worth
+knowing about the feeds: the all‑leagues scoreboard sometimes emits `null` entries inside a
+match's `odds` list (skipped), and the core odds record is the only place the **opener** and
+the **closer** live, so a `--backfill` of a finished day reads `close` as the current line.
+
+### The Elo, exactly
+
+```mermaid
+flowchart TD
+    A["results table, ordered by date then id\n(39,565 finals · 184 leagues · 3,941 teams · 2025-07-01 → today)"] --> B["for each match, both teams start at 1500"]
+    B --> C["dr = elo_home − elo_away + HFA\nHFA = 60 (0 on a neutral site)"]
+    C --> D["E = 1 / (1 + 10^(−dr/400))\nexpected home score"]
+    D --> E["S = 1 win · ½ draw · 0 loss (home view)"]
+    E --> F["mult = 1 (|gd| ≤ 1) · 1.5 (gd 2) · (11+|gd|)/8 (gd ≥ 3)"]
+    F --> G["K = 20 league · 10 friendlies\nΔ = K · mult · (S − E)"]
+    G --> H["home += Δ · away −= Δ\nn += 1 on both"]
+    H -->|"next match"| C
+    H --> I["elo_as_of(date) = state after the last result before date\n→ a past date sees only what was known then"]
+    I --> J["elo_probs(home, away, neutral)\nE as above\nP(draw) = DRAW_BASE · 4E(1−E)   (0.26 at parity, → 0 in a mismatch)\nP(home) = E − P(draw)/2\nP(away) = (1−E) − P(draw)/2\nrenormalise if a clamp fired"]
+```
+
+Why replay instead of storing ratings: a stored table is only right for *today*. Replaying
+from the results table means `--backfill 2026-09-13` rates every team with results through
+2026‑09‑12 and nothing later, which is the only way the backfilled paper ledger is honest.
+The replay is 40k dictionary updates and takes well under a second. `analysis/05` re‑implements
+the same twenty lines in Python and R so it can refit `ELO_HFA` and `DRAW_BASE` without
+importing the tool.
+
+### The three‑way arithmetic, with one worked match
+
+Real Sociedad at Valencia, Sunday 2026‑09‑20 (esp.1). DraftKings: Valencia +175, draw +235,
+Real Sociedad +160. Elo as of that morning: Valencia 1524.9 (51 results), Real Sociedad
+1511.7 (55 results). Not neutral.
+
+```mermaid
+flowchart LR
+    subgraph IN["inputs"]
+        EL["Elo: home 1524.9 · away 1511.7 · HFA 60"]
+        ML["DK 3-way: +175 / +235 / +160"]
+    end
+    EL --> DR["dr = 1524.9 − 1511.7 + 60 = 73.2\nE = 1/(1+10^(−0.183)) = 0.603"]
+    DR --> PD["P(draw) = 0.26 · 4 · 0.603 · 0.397 = 0.249\nP(home) = 0.603 − 0.124 = 0.479\nP(away) = 0.397 − 0.124 = 0.272"]
+    ML --> IMP["implied: 36.4% / 29.9% / 38.5% = 104.7%\nde-vig: 34.7% / 28.5% / 36.7%"]
+    PD --> EDGE
+    IMP --> EDGE["edge = (model − fair) / fair\nhome (47.9 − 34.7)/34.7 = +38% → STRONG 3W\ndraw −13% · away −26% → not picks"]
+    EDGE --> KEL["Kelly at +175: b = 1.75\nf = (0.479·1.75 − 0.521)/1.75 = 18.1%\n¼ Kelly = 4.5% of $100 → $5 (rounded, under the 5% cap)"]
+    KEL --> PO["LIVE_STAKES = False\n→ paper_bets row, PAPER ONLY banner above it"]
+```
+
+Every number in that chain is on the board row: `+175/+235/+160`, `1525/1512`, `48%/25%/27%`,
+`STRONG 3W Valencia +175 (+38%) $5`. What the board cannot show is the thing `05` measures: on
+the backfill, plays with a model‑vs‑fair gap this large hit about 30%, not 48%.
+
+### What the soccer database stores
+
+```mermaid
+erDiagram
+    matches ||--o{ snapshots : "one per --snapshot / --backfill run"
+    matches ||--o{ paper_bets : "0..1 ml3 play per pick"
+    results ||..|| matches : "same ESPN id when both exist"
+    matches {
+        text id PK "ESPN event id"
+        text league "ESPN slug, e.g. eng.1"
+        text league_name
+        text name
+        text date "kickoff date, America/Chicago"
+        text kickoff_utc
+        int neutral
+        text home_id
+        text home
+        text away_id
+        text away
+        int home_score
+        int away_score
+        int completed "1 once ESPN says full time"
+    }
+    snapshots {
+        int id PK
+        text match_id FK
+        text taken_at "ISO, local tz"
+        text provider "DraftKings"
+        int home_ml "3-way, american"
+        int draw_ml
+        int away_ml
+        int home_ml_open
+        int draw_ml_open
+        int away_ml_open
+        real home_spread "Asian, home view"
+        real home_spread_open
+        real total
+        real total_open
+        real home_elo "as of the date, NULL = unrated"
+        real away_elo
+        int home_elo_n "results behind the rating"
+        int away_elo_n
+        real home_p "model 3-way"
+        real draw_p
+        real away_p
+        int backfill "1 = closers + Elo-as-of after the fact"
+    }
+    paper_bets {
+        int id PK
+        text match_id FK
+        text logged_at
+        text kind "ml3"
+        text pick "home | draw | away"
+        text side "team name or Draw"
+        int price "american at log time"
+        real truth_p "model probability used for Kelly"
+        real edge "% over the de-vigged fair prob"
+        int strength "2 STRONG 3W, 1 3W value"
+        real stake "quarter-Kelly, 5% cap"
+        text result "W L, NULL = pending"
+        real profit
+        int backfill
+    }
+    results {
+        text id PK "ESPN event id"
+        text date
+        text league
+        text home_id
+        text home
+        text away_id
+        text away
+        int home_score
+        int away_score
+        int neutral
+    }
+    results_log {
+        text date PK "a day already fetched"
+        int n "finals stored that day"
+    }
+```
+
+`results` is the Elo's only input and is append‑only; `results_log` is what lets
+`--build-elo` re‑run in seconds (only missing days are fetched). `snapshots.home_p` is stored
+so `analysis/05` can calibrate the model *as it was at log time*, not as a refit would make it.
+
+### The soccer week
+
+```mermaid
+sequenceDiagram
+    participant You
+    participant Tool as soccer_edge.py
+    participant DB as soccer.db
+    participant An as analysis/05 (py + R)
+
+    Note over You,An: once, and after a long gap
+    You->>Tool: --build-elo
+    Tool->>DB: results for every missing day (all leagues)
+    Note over You,An: match day (Europe kicks off ~06:00 CT, Americas run to midnight)
+    You->>Tool: --snapshot --report [--league …]
+    Tool->>DB: matches · snapshots (3-way open/current) · paper_bets (ml3 ≥ 1)
+    Tool-->>You: PAPER ONLY banner · board · top-N · reports/soccer-WEEKDAY-DATE.md
+    You->>DB: gh release create soccer-WEEKDAY-DATE[-HHMM] (freeze the cut)
+    Note over You,An: next morning
+    You->>Tool: --date YESTERDAY --settle
+    Tool->>DB: finals → results (the Elo learns) · grade paper_bets
+    You->>An: python analysis/05_soccer/soccer_loop.py  and  Rscript …/soccer_loop.R
+    An-->>You: A ROI · B slices · C calibration + log-loss · D HFA×draw refit — same numbers twice
+    You->>Tool: change ELO_HFA / DRAW_BASE / tiers only if both runtimes say so → bump FINDINGS_AS_OF
+    You->>DB: CHANGELOG.md entry · README status table · commit · push · release
+```
+
+### Inside `analysis/05` — what it asks and where the answers go
+
+```mermaid
+flowchart TD
+    DB[("soccer.db")] --> LB["load_soccer_bets()\nsettled paper_bets\n+ pnl_flat"]
+    DB --> LM["load_soccer_matches()\nlast snapshot per settled match\n+ de-vigged fair probs + outcome"]
+    DB --> LR["load_results()\nevery final, chronological"]
+
+    LB --> A["A. paper ROI\npick × strength · flat $1\n5,000-rep bootstrap 95% CI\nverdict PROFITABLE / losing / inconclusive"]
+    LB --> B["B. slices\nedge band · price band · pick\nWilson CI on hit · flat ROI"]
+    LM --> C["C. calibration\nbinned P(home)/P(draw)/P(away) vs observed\n3-way log-loss: Elo vs de-vigged closer"]
+    LR --> D["D. refit\nreplay Elo for HFA ∈ {0,30,60,90,120}\nscore DRAW_BASE ∈ {0.20 … 0.32}\nheld-out second half, 3-way log-likelihood"]
+
+    A --> O1["_out/soccer_roi.csv"]
+    B --> O2["_out/soccer_slices.csv"]
+    C --> O3["_out/soccer_calibration.csv"]
+    D --> O4["_out/soccer_fit.csv"]
+    O1 & O2 & O3 & O4 --> V{"Python == R?"}
+    V -- yes --> K["constants in soccer_edge.py\nELO_HFA · DRAW_BASE · ELO_K · ML tiers\nFINDINGS_AS_OF"]
+    V -- no --> BUG["fix the runtime that is wrong"]
+    K -.-> DB
+```
+
+The first run (2026‑09‑20) is in the status table above. The refit grid put the live
+constants at the exact optimum, so the interesting output is B and C: a bigger disagreement
+with the closer is a worse bet, and the closer has the lower log‑loss. The constants are
+right; the model is not better than the market.
+
+### Coverage on a real Sunday (2026‑09‑20)
+
+```mermaid
+flowchart LR
+    A["280 matches on ESPN\n54 leagues"] --> B["264 with Elo on both sides\n(16 have a side with < 8 results:\nNCAA, cup qualifiers, new promotions)"]
+    A --> C["149 with a DK 3-way price\n(women's leagues, NCAA, some cups\nare unpriced)"]
+    B & C --> D["~140 scoreable"]
+    D --> E["72 ml3 plays, strength ≥ 1\n(edge ≥ +8% on the best outcome)"]
+    E --> F["all paper: LIVE_STAKES = False"]
+```
 
 **Honest status (first soccer analysis run 2026‑09‑20, Python == R).** `analysis/05_soccer`
 graded the first two backfilled days and refit the priors on the whole results table:

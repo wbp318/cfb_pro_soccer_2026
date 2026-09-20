@@ -27,6 +27,10 @@ releases (`<weekday>-<date>` tags) are not listed here; see the GitHub releases 
   weekly-loop and CI diagrams show `05`; running blocks and file table updated.
   `analysis/README.md`, `CLAUDE.md` updated. Report footer and constants comment in
   `soccer_edge.py` cite the run.
+- Deep soccer detail in README: nine new Mermaid diagrams (flags, data sources, the Elo
+  exactly, three-way arithmetic on a real match, soccer ER, the soccer week, inside `05`,
+  Sunday coverage funnel) plus an analysis map in `analysis/README.md`. Football flag diagram
+  now shows the banner and the new demotions. All 22 blocks parse under Mermaid 11.
 
 ## [2026-09-20b] — Pro soccer module, repo renamed to cfb_pro_soccer_2026
 
