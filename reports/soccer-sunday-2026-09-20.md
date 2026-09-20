@@ -1,6 +1,6 @@
 # Soccer Outlier Report — Sunday, September 20, 2026
 
-**Generated:** 2026-09-20 08:40 AM CDT  
+**Generated:** 2026-09-20 08:43 AM CDT  
 **STAKES: PAPER ONLY as of 2026-09-20 — no bucket has a 95% CI above zero. $Bet is what the paper ledger logs, not a recommendation to bet real money.**  
 **Slate:** 280 matches across every league ESPN lists, 233 not yet kicked, 108 with a DraftKings three-way price, 107 with an Elo rating on both sides  
 **Model:** self-built Elo from 39,583 ESPN results (K=20, HFA=60, draw base 0.26; both confirmed by analysis/05 on 2026-09-20). The closer is sharper than Elo (3-way log-loss 1.021 vs 1.056) and bigger edges hit less often — same lesson as football.
@@ -140,7 +140,7 @@ sun 07:30am  aut.1         LAS @ HAR 1-2 live                    +700/+400/-280 
 sun 07:30am  eng.2         BOL @ NOR 2-3 live                    -235/+400/+550    1554/1560   45%/25%/30%   3.5     ⚠long-dog [home -175→-235 (+6.9pp)]
 sun 07:30am  ned.1         TEL @ AZ 1-0 live                     -390/+550/+850    1665/1499   70%/18%/13%   3.5     ⚠long-dog
 sun 07:30am  ned.1         PSV @ TWE 1-2 live                    +190/+300/+115    1642/1706   36%/26%/38%   3.5     3W value FC Twente +190 (+12%) $1
-sun 07:30am  nor.1         FRE @ VAL 0-0 live                    -115/+300/+260    1451/1496   39%/26%/35%   3.5     3W value Fredrikstad +260 (+33%) $2 ⚠long-dog
+sun 07:30am  nor.1         FRE @ VAL 0-1 live                    -115/+300/+260    1451/1496   39%/26%/35%   3.5     3W value Fredrikstad +260 (+33%) $2 ⚠long-dog
 sun 08am     eng.1         LIV @ BOU 0-0 live                    +215/+270/+115    1603/1625   43%/26%/32%   2.5     STRONG 3W AFC Bournemouth +215 (+41%) $4  [total 3.5→2.5]
 sun 08am     eng.1         CRY @ LEE 0-0 live                    -155/+300/+425    1598/1571   50%/24%/26%   2.5     ⚠long-dog [home +100→-155 (+11.5pp)]
 sun 08am     eng.1         SUN @ MNC 2-2 live                    -280/+425/+750    1792/1550   78%/13%/8%    2.5     3W value Manchester City -280 (+11%) $4
@@ -149,13 +149,13 @@ sun 08am     eng.w.1       TOT @ CRY 0-0 live                    +550/+370/-250 
 sun 08am     eng.w.1       EVE @ WHU 0-0 live                    +130/+225/+195    1469/1483   44%/26%/31%   2.5     3W value West Ham United +130 (+9%)
 sun 08am     fra.1         BRE @ AUX 0-1 live                    +200/+245/+135    1462/1468   45%/25%/30%   2.5     STRONG 3W AJ Auxerre +200 (+42%) $4
 sun 08am     ita.1         COMO @ FRO 1-0 live                   +475/+370/-225    1664/1673   45%/25%/30%   3.5     ⚠long-dog [away -165→-225 (+7.8pp)] [total 2.5→3.5]
-sun 08am     ita.1         GEN @ PAR 0-0 live                    +220/+190/+135    1434/1462   42%/26%/33%   1.5     STRONG 3W Parma +220 (+44%) $4
+sun 08am     ita.1         GEN @ PAR 1-0 live                    +220/+190/+135    1434/1462   42%/26%/33%   1.5     STRONG 3W Parma +220 (+44%) $4
 sun 08am     ita.2         SUD @ ARE 0-0 live                    +130/+205/+240    1490/1460   51%/24%/25%   2.5     ⚠unrated
 sun 08am     ita.2         VIC @ VER 0-0 live                    -115/+245/+330    1380/1495   29%/25%/45%   2.5     3W value Vicenza +330 (+106%) $5 ⚠long-dog
 sun 08am     por.taca.port LEI @ CIN                             —/—/—             1508/1503   47%/25%/28%   —
 sun 08am     rsa.1         KAI @ ARR 0-0 live                    +250/+200/+115    1513/1597   34%/26%/41%   2.5     STRONG 3W Golden Arrows +250 (+27%) $2
 sun 08am     rsa.1         ORL @ MAR 0-1 live                    +750/+360/-295    1392/1713   10%/15%/74%   2.5
-sun 08am     rsa.1         DUR @ MIL 0-0 live                    +175/+185/+175    1518/1500   49%/25%/27%   2.5     ⚠unrated [total 1.5→2.5]
+sun 08am     rsa.1         DUR @ MIL 1-0 live                    +175/+185/+175    1518/1500   49%/25%/27%   2.5     ⚠unrated [total 1.5→2.5]
 sun 08am     uru.1         JUV @ ALB 0-2 live                    +190/+230/+130    1470/1496   42%/26%/32%   2.5     STRONG 3W Albion FC +190 (+32%) $3  [away +160→+130 (+5.4pp)]
 sun 08:30am  ger.1         RBL @ B04 0-0 live                    -125/+310/+250    1645/1604   52%/24%/24%   3.5     ⚠long-dog
 sun 09am     bel.1         KVCW @ STVV                           -150/+320/+370    1548/1480   56%/23%/21%   3.5     ⚠long-dog
