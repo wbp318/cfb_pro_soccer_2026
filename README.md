@@ -1,10 +1,14 @@
-# cfb_2026
+# cfb_pro_soccer_2026
 
-> College football outlier finder. One file (`cfb_edge.py`), no API keys. Compares the
+> College football **and pro soccer** outlier finders. Two files (`cfb_edge.py`,
+> `soccer_edge.py`), no API keys. The football half compares the
 > **DraftKings** line (via ESPN) against **ESPN FPI's** game projection for every game on the
 > Saturday slate, flags where the model and the market disagree, tracks open→current line
 > movement, sizes quarter-Kelly tickets, and writes everything to SQLite so the edge (if
-> any) can be **backtested honestly** in Python *and* R.
+> any) can be **backtested honestly** in Python *and* R. The soccer half (added
+> 2026‑09‑20) does the same for every league DraftKings prices through ESPN, with a
+> self‑built Elo table standing in for the predictor ESPN does not publish for soccer —
+> see [Pro soccer](#pro-soccer-soccer_edgepy).
 >
 > Sister project of [`horses_worldwide`](../horses_worldwide). Same philosophy: it reads
 > public data and produces recommendations. **It does not place bets** — you place them
@@ -56,6 +60,11 @@ python cfb_edge.py --picks               # only the tickets that clear every rul
 python cfb_edge.py --bankroll 250        # resize the $Bet column
 python cfb_edge.py --snapshot --report   # persist lines + FPI, paper-log plays, write reports/<weekday>-<date>.md
 python cfb_edge.py --date 2026-09-19     # any date (default: next Saturday)
+
+python soccer_edge.py --build-elo        # once: a year of results from every league -> soccer.db (~3 min)
+python soccer_edge.py                    # today's soccer board, every league, Elo vs DK 3-way
+python soccer_edge.py --top 15 --league eng.1,esp.1,ger.1,ita.1,fra.1
+python soccer_edge.py --snapshot --report    # persist + paper-log + reports/soccer-<weekday>-<date>.md
 ```
 
 Each `--report` is also published as a GitHub release so the pre‑kickoff board is frozen
@@ -118,12 +127,12 @@ winget install RProject.R                  # optional: only needed for the R hal
 # then put C:\Program Files\R\R-4.4.2\bin on the PATH — see "Getting Rscript on the PATH" below
 
 winget install Git.Git GitHub.cli          # optional: gh cuts the weekly releases and does CI/branch-protection admin
-git clone https://github.com/wbp318/cfb_2026.git
-cd cfb_2026
+git clone https://github.com/wbp318/cfb_pro_soccer_2026.git
+cd cfb_pro_soccer_2026
 pip install -r requirements.txt            # runtime: just `requests`
 pip install -r analysis/requirements-py.txt -r requirements-dev.txt   # pandas/numpy + ruff/pytest
 python cfb_edge.py --top 10                # first live run — should print next Saturday's outliers
-python -m pytest -q tests                  # 42 passed
+python -m pytest -q tests                  # 65 passed
 ```
 
 No API keys, no `.env`, nothing to sign up for. If the first live run prints a 403, read
@@ -168,6 +177,13 @@ flowchart TB
         ESPN(("ESPN\nscoreboard · odds\npredictor · powerindex")) --> FETCH["fetch + enrich\n→ list[Game]"]
         FETCH --> SIG["signals\nATS · ML · line move · total move"]
         SIG --> OUT["terminal board\n--top ranker\nreports/WEEKDAY-DATE.md"]
+    end
+
+    subgraph SOC["1b · Soccer tool — soccer_edge.py (imports the odds math + banner from cfb_edge)"]
+        direction LR
+        ESPN2(("ESPN soccer\nall-leagues scoreboard\n3-way odds open/close")) --> ELO["--build-elo\nresults table → Elo replay"]
+        ELO --> SIG2["ml3 signal\nElo H/D/A vs de-vigged DK 3-way\nprob move · total move"]
+        SIG2 --> OUT2["board · --top\nreports/soccer-WEEKDAY-DATE.md\nsoccer.db paper ledger"]
     end
 
     subgraph STORE["2 · Storage (local only, gitignored)"]
@@ -741,7 +757,68 @@ Remove-Item Env:CFB_DB
 - **Bootstrap** — resample the bets with replacement 5,000× to get a CI on ROI without assuming
   a distribution.
 
+## Pro soccer (`soccer_edge.py`)
+
+Added 2026‑09‑20. Same shape as the football tool, three differences:
+
+1. **Every league.** ESPN's `soccer/all/scoreboard` lists every match on a date (219
+   leagues in the catalogue: Premier League to the Bolivian Liga Profesional, NCAA, women's
+   leagues, cups, qualifiers). DraftKings prices most of them through ESPN's core odds
+   record: three‑way moneyline, Asian spread and total, each with open / current / close.
+2. **No ESPN predictor for soccer.** The model side is an Elo table the tool builds itself:
+   `--build-elo` walks every day from 2025‑07‑01 to today, stores every final score in
+   `soccer.db`, and replays them chronologically (K = 20, half for friendlies, home
+   advantage 60 Elo, goal‑difference multiplier as in World Football Elo). Ratings are
+   never stored, only replayed, so a past date's rating is exactly what was known then and
+   `--backfill` is honest.
+3. **Three outcomes.** Elo gives an expected score; the draw gets `DRAW_BASE` (26%) at parity
+   shrinking as 4E(1−E), and the remainder is split to preserve the expected score. That
+   split is the weakest assumption in the module, so **draw picks are capped at "value"**.
+
+```mermaid
+flowchart TD
+    A["Match with a DK 3-way price"] --> B{"Both sides rated?\n(≥ 8 results in the table)"}
+    B -- no --> Z["strength 0 · ⚠unrated\nshown, never staked (same idea as FCS)"]
+    B -- yes --> C["Elo → P(home) · P(draw) · P(away)\nDK 3-way → de-vigged fair probs"]
+    C --> D["edge = (model − fair) / fair, best positive outcome"]
+    D --> E{"≥ +20%?"}
+    E -- yes --> F["STRONG 3W"]
+    E -- no --> G{"≥ +8%?"}
+    G -- yes --> H["3W value"]
+    G -- no --> I["no tag"]
+    F & H --> J{"Demotions"}
+    J --> J1["draw pick → cap at value\n⚠draw-model"]
+    J --> J2["dog > +250 → cap at value\n⚠long-dog"]
+    J --> J3["> +400 or < −300 → strength 0"]
+    J1 & J2 & J3 --> K["paper stake = ¼ Kelly, 5% cap\nLIVE_STAKES shared with cfb_edge → PAPER ONLY"]
+```
+
+| Flag | What |
+|---|---|
+| `--build-elo [--since D]` | fetch and store results from `--since` (default 2025‑07‑01) to `--date`; re‑runs only fetch missing days |
+| *(none)* | today's board, every league, then the top‑10 |
+| `--league eng.1,esp.1` | keep only these ESPN slugs (`soccer_leagues.json` is the id → slug cache) |
+| `--top N` / `--flagged` | ranked outliers only / tagged rows only |
+| `--snapshot --report` | persist lines + Elo, paper‑log flagged plays, write `reports/soccer-<weekday>-<date>.md` |
+| `--settle` | refresh finals for `--date`, store them as results, grade the paper ledger |
+| `--date D --backfill` | past date: closers + Elo‑as‑of, paper‑log with `backfill=1`, settle |
+| `--elo-show N` | print the top‑N Elo table |
+| `--paper-show` | soccer paper ledger by pick × strength |
+
+**Honest status.** No soccer analysis run exists yet. Every constant in the soccer block is a
+prior, the paper ledger in `soccer.db` is the first thing that will say whether Elo‑vs‑DK is
+anything, and the banner says PAPER ONLY on every soccer board because `LIVE_STAKES` is shared.
+Football's lesson applies in advance: the biggest disagreements are where the market most
+likely knows something the rating does not. First backfill (2026‑09‑12/13, 229 paper bets,
+closers + Elo‑as‑of): flat ROI **−14.7%**; STRONG +3.1% on 88, value −35% on 141. Two days,
+no verdict, paper only.
+
 ## Roadmap (only if the numbers earn it)
+
+- **Soccer analysis twins.** `soccer.db` has the same shape as `data.db` (matches · snapshots ·
+  paper_bets · results). An `analysis/05_soccer_*` pair (Python + R) that grades the 3‑way
+  ledger by pick, price band and edge band, fits `DRAW_BASE` and `ELO_HFA` on the results table,
+  and reports Elo calibration is the next thing to build once a few weekends are settled.
 
 - **Multi‑book line shopping.** ESPN exposes only DraftKings. A keyed API (CollegeFootballData
   or The Odds API, both free tiers) would add FanDuel/Caesars/BetMGM and turn "FPI vs DK" into
@@ -766,7 +843,8 @@ contact William Brooks Parker via [github.com/wbp318](https://github.com/wbp318)
 
 | File | What |
 |---|---|
-| `cfb_edge.py` | the tool — everything lives here, section headers navigate it |
+| `cfb_edge.py` | the football tool — everything lives here, section headers navigate it |
+| `soccer_edge.py` | the soccer tool — every league, self-built Elo vs DK 3-way; imports odds math + banner from `cfb_edge` |
 | `cfb_gui.py` | optional local browser dashboard over `cfb_edge.py` (stdlib only) |
 | `betting_guide.md` | live‑play reference: thresholds, what to fire on, discipline |
 | `CLAUDE.md` | conventions for Claude Code |
@@ -774,6 +852,7 @@ contact William Brooks Parker via [github.com/wbp318](https://github.com/wbp318)
 | `tests/` | pytest unit tests, no network — run `python -m pytest -q tests` |
 | `.github/` | CI workflow + dependabot (Actions weekly; pip security‑only) |
 | `ruff.toml`, `requirements-dev.txt` | lint config and dev deps (ruff, pytest) |
-| `reports/` | `<weekday>-<date>.md` (e.g. `saturday-2026-09-12.md`) — what the tool said before kickoff; each one is also a GitHub release |
+| `reports/` | `<weekday>-<date>.md` (football) and `soccer-<weekday>-<date>.md` — what the tool said before kickoff; each one is also a GitHub release |
+| `CHANGELOG.md` | every rule/constant change and fix, with the analysis run that justified it |
 | `snapshot.bat` | Task Scheduler wrapper |
-| `data.db`, `bets.csv` | local only, gitignored |
+| `data.db`, `soccer.db`, `soccer_leagues.json`, `bets.csv` | local only, gitignored |

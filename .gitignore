@@ -15,3 +15,6 @@ analysis/_out/
 .Rhistory
 .RData
 .Rproj.user/
+soccer.db
+soccer.db-journal
+soccer_leagues.json

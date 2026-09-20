@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository.
 
 ## What this is
 
-A single-file Python tool (`cfb_edge.py`) that pulls the Saturday college football slate
+Two Python tools. `cfb_edge.py` pulls the Saturday college football slate
 from ESPN's public endpoints, compares the DraftKings line to ESPN FPI's game projection,
 flags outliers, tracks open→current line movement, suggests quarter-Kelly stakes, and
 persists everything to SQLite for an honest backtest. Sister project of
@@ -23,6 +23,11 @@ python cfb_edge.py --settle               # Sunday: grade paper + real bets
 python cfb_edge.py --paper-show / --bets-show
 python cfb_edge.py --bet <id> --kind spread --side "Team" --line 3.5 --price -110 --stake 5
 python cfb_gui.py                         # local browser dashboard, same functions
+
+python soccer_edge.py --build-elo         # once (~3 min): a year of results -> soccer.db
+python soccer_edge.py                     # today's soccer board, every league
+python soccer_edge.py --snapshot --report # persist + paper-log + reports/soccer-<weekday>-<date>.md
+python soccer_edge.py --date 2026-09-13 --backfill   # closers + Elo-as-of for a past day
 
 python analysis/01_paper_roi_ci/paper_roi.py      # and the .R twin via Rscript
 ```
@@ -45,7 +50,19 @@ the point estimates match. `Rscript` is at `C:\Program Files\R\R-4.4.2\bin` (not
 
 ## Architecture
 
-**Everything is in `cfb_edge.py`** (~1,000 lines). `cfb_gui.py` is a stdlib `http.server`
+**`soccer_edge.py` is the pro-soccer twin** (added 2026-09-20): every league on ESPN's
+`soccer/all/scoreboard`, DraftKings three-way odds from the core odds record, and a
+self-built Elo table (`--build-elo` stores results in `soccer.db`; ratings are replayed
+from the `results` table, never stored, so `--backfill` uses the rating as of that date).
+It imports the odds math, `stake_for`, `stakes_banner` and `LIVE_STAKES` from `cfb_edge`
+and must not re-implement them. Signals: `ml3_signal` (Elo H/D/A vs de-vigged 3-way),
+`prob_move_signal`, `total_move_signal`. Demotions: either side with < `ELO_MIN_MATCHES`
+results → strength 0 (⚠unrated); draw picks capped at value (⚠draw-model); > +250 capped
+(⚠long-dog). No soccer analysis run exists yet — every soccer constant is a prior; say so.
+Tests: `tests/test_soccer_edge.py` (18 cases, no network). `soccer.db` and
+`soccer_leagues.json` are gitignored.
+
+**Everything football is in `cfb_edge.py`** (~1,000 lines). `cfb_gui.py` is a stdlib `http.server`
 dashboard that imports it; it must never recompute a signal or duplicate a rule — add
 logic to `cfb_edge.py` and have the GUI call it. Its tests are `tests/test_cfb_gui.py`.
 Sections of `cfb_edge.py`: odds math → ESPN adapters →
@@ -117,10 +134,14 @@ bump `FINDINGS_AS_OF`, update the "Before you bet" table in README.md, commit + 
   current with the latest analysis run.
 - `CHANGELOG.md` gets an entry for every rule/constant change and every fix, citing the
   analysis run that justified it. Weekly report releases are not changelog entries.
-- Every commit gets pushed in the same step. Remote: `github.com/wbp318/cfb_2026`.
+- Every commit gets pushed in the same step. Remote: `github.com/wbp318/cfb_pro_soccer_2026`
+  (renamed from `cfb_2026` on 2026-09-20; GitHub redirects the old name). The local folder is
+  still `C:\Users\wbp31\cfb_2026` on purpose — the scheduled task and the Claude memory dir
+  point at it.
 - `main` is protected (set 2026-09-09): no force-push, no deletion, the three CI checks must
   pass; the owner (admin) can bypass the check requirement. Never `push --force` to main;
   if history needs rewriting, do it on a branch and open a PR.
-- Do not commit `data.db`, `bets.csv`, `snapshot.log`, `analysis/_out/` (gitignored).
+- Do not commit `data.db`, `soccer.db`, `soccer_leagues.json`, `bets.csv`, `snapshot.log`,
+  `analysis/_out/` (gitignored).
 - `.gitattributes` marks every language linguist-detectable on purpose.
 - Honesty in the README is load-bearing. Don't soften "inconclusive" into "promising".

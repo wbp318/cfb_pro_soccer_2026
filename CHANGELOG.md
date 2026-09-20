@@ -4,6 +4,38 @@ All notable changes to `cfb_edge.py` and the analysis loop. Rule changes cite th
 run that justified them; nothing in the constants block changes without one. Weekly report
 releases (`<weekday>-<date>` tags) are not listed here; see the GitHub releases page.
 
+## [2026-09-20b] — Pro soccer module, repo renamed to cfb_pro_soccer_2026
+
+### Added
+- **`soccer_edge.py`**: pro soccer outlier finder for every league ESPN lists (219 in the
+  catalogue) and DraftKings prices. ESPN publishes no predictor for soccer, so the model is a
+  self-built Elo table: `--build-elo` stores a year of final scores in `soccer.db` and
+  ratings are replayed chronologically (K 20, half for friendlies, HFA 60, goal-difference
+  multiplier), never stored, so a backfill uses exactly the rating known on that date.
+  Elo → home/draw/away (draw base 26% at parity, shrinking as 4E(1−E)) vs the de-vigged
+  DraftKings three-way line. Signals: `ml3` (+8% value / +20% STRONG), `prob-move`,
+  `total-move`. Demotions: unrated side (< 8 results) → never staked; draw picks capped at
+  value; dogs > +250 capped; outside −300..+400 never. Shares `LIVE_STAKES`, `stake_for`
+  and the PAPER ONLY banner with `cfb_edge`. Flags mirror the football tool
+  (`--snapshot --report --settle --backfill --top --league --elo-show --paper-show`).
+- `tests/test_soccer_edge.py`: 18 cases, no network. CI compiles, lints, tests, `--help`s
+  and schema-bootstraps the soccer module too.
+- `reports/soccer-<weekday>-<date>.md` report format.
+
+### Changed
+- Repo renamed **`cfb_2026` → `cfb_pro_soccer_2026`** (GitHub redirects the old URL). The
+  local folder keeps its name so the scheduled task and memory paths still resolve.
+- README: title, clone URL, quick start, overview diagram (soccer subgraph), new "Pro
+  soccer" section with its own signal diagram and flag table, roadmap and file table.
+
+### Honest status
+- No soccer analysis run exists. Every soccer constant is a prior. The paper ledger in
+  `soccer.db` and a future `analysis/05_soccer_*` pair decide whether Elo-vs-DK is anything.
+- First backfill sample, 2026-09-12/13 (229 paper bets across all leagues, closers + Elo as
+  of that day): flat ROI **−14.7%** on $629 staked. STRONG (str 2): 88 bets, 35 W, +3.1%.
+  Value (str 1): 141 bets, 44 W, −35%. Two days is not a verdict; it is the reason the
+  module is paper only.
+
 ## [2026-09-20] — Paper only, overreach cap, ML dead zone, 2025 backfill, analysis/04
 
 Triggered by going 0-for-5 on 2026-09-19 with five ML dogs from the top of the board.

@@ -29,11 +29,11 @@ jobs:
 
       # 1. Everything compiles.
       - name: Compile check
-        run: python -m py_compile cfb_edge.py cfb_gui.py analysis/_shared/load_data.py analysis/*/*.py tests/*.py
+        run: python -m py_compile cfb_edge.py cfb_gui.py soccer_edge.py analysis/_shared/load_data.py analysis/*/*.py tests/*.py
 
       # 2. Lint. Fix-or-fail: fix the code, don't relax the lint.
       - name: Lint (ruff)
-        run: ruff check cfb_edge.py cfb_gui.py analysis tests
+        run: ruff check cfb_edge.py cfb_gui.py soccer_edge.py analysis tests
 
       # 3. Unit tests — odds math, signals, grading, SQLite round trip, ledger. No network.
       - name: Unit tests (pytest)
@@ -41,13 +41,14 @@ jobs:
 
       # 4. CLI parses — catches argparse regressions.
       - name: CLI parses
-        run: python cfb_edge.py --help > /dev/null && python cfb_gui.py --help > /dev/null
+        run: python cfb_edge.py --help > /dev/null && python cfb_gui.py --help > /dev/null && python soccer_edge.py --help > /dev/null
 
       # 5. SQLite schema bootstraps + migrates on a fresh DB (no network).
       - name: DB schema bootstrap
         run: |
           python cfb_edge.py --paper-show --db "$RUNNER_TEMP/ci.db"
           python cfb_edge.py --bets-show
+          python soccer_edge.py --paper-show --db "$RUNNER_TEMP/soccer_ci.db"
 
       # 6. Analysis scripts run cleanly against the empty DB and say so.
       - name: Analysis (empty DB)
