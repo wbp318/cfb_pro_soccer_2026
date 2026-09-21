@@ -9,7 +9,7 @@
 *.R      linguist-detectable=true linguist-language=R
 *.r      linguist-detectable=true linguist-language=R
 *.Rmd    linguist-detectable=true linguist-language=RMarkdown
-*.ipynb  linguist-detectable=true linguist-language="Jupyter Notebook"
+*.ipynb  linguist-detectable=true linguist-language=Jupyter-Notebook
 *.sql    linguist-detectable=true linguist-language=SQL
 *.js     linguist-detectable=true linguist-language=JavaScript
 *.mjs    linguist-detectable=true linguist-language=JavaScript
@@ -44,8 +44,8 @@ Dockerfile linguist-detectable=true linguist-language=Dockerfile
 Makefile   linguist-detectable=true linguist-language=Makefile
 
 # dotfiles and paths linguist would otherwise skip
-.gitattributes  linguist-detectable=true linguist-language="Git Attributes"
-.gitignore      linguist-detectable=true linguist-language="Ignore List"
+.gitattributes  linguist-detectable=true linguist-language=Git-Attributes
+.gitignore      linguist-detectable=true linguist-language=Ignore-List
 .github/**      linguist-vendored=false linguist-detectable=true
 reports/**      linguist-documentation=false linguist-generated=false linguist-detectable=true
 analysis/**     linguist-vendored=false linguist-detectable=true
