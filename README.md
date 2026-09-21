@@ -1397,6 +1397,7 @@ contact William Brooks Parker via [github.com/wbp318](https://github.com/wbp318)
 | `tests/` | pytest unit tests, no network — run `python -m pytest -q tests` |
 | `.github/` | CI workflow + dependabot (Actions weekly; pip security‑only) |
 | `ruff.toml`, `requirements-dev.txt` | lint config and dev deps (ruff, pytest) |
+| `.gitattributes` | makes every language linguist would hide count on GitHub's language bar (Python, R, Markdown, YAML, TOML, Batchfile, PowerShell, Text, …) and pins LF line endings, CRLF for `.bat`/`.ps1` |
 | `reports/` | `<weekday>-<date>.md` (football), `soccer-<weekday>-<date>.md`, `nhl-<weekday>-<date>.md` — what the tool said before kickoff; each one is also a GitHub release |
 | `CHANGELOG.md` | every rule/constant change and fix, with the analysis run that justified it |
 | `snapshot.bat` | Task Scheduler wrapper |
