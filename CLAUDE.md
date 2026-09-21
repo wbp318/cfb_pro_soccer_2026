@@ -1,172 +1,163 @@
 # CLAUDE.md
 
-Guidance for Claude Code when working in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## What this is
 
-Three Python tools, all paper only. `cfb_edge.py` pulls the Saturday college football slate
-from ESPN's public endpoints, compares the DraftKings line to ESPN FPI's game projection,
-flags outliers, tracks open→current line movement, suggests quarter-Kelly stakes, and
-persists everything to SQLite for an honest backtest. Sister project of
-`../horses_worldwide` — read its CLAUDE.md for the shared philosophy. **`README.md` has
-usage and the diagrams; `betting_guide.md` has the play rules.**
+Three outlier finders, one philosophy, **all paper only**:
 
-## Common commands
+| tool | market | model | lines | DB |
+|---|---|---|---|---|
+| `cfb_edge.py` | college football spreads / moneylines | ESPN FPI predictor | DraftKings via ESPN | `data.db` |
+| `soccer_edge.py` | every soccer league ESPN lists, 3-way ML | self-built Elo from a year of ESPN results | DraftKings via ESPN | `soccer.db` |
+| `nhl_edge.py` | NHL player props (SOG, PTS, G, A, BLK, PPP, goalie SV) | Poisson projections from NHL public game logs | The Odds API (`ODDS_API_KEY`) or a CSV | `nhl.db` |
+
+Each flags where model and market disagree, paper-logs every flagged play, settles it from
+finals, and hands the ledger to `analysis/` (Python + R twins) which is the **only** thing
+allowed to change a rule constant. Sister project of `../horses_worldwide`; read its
+CLAUDE.md for the shared philosophy. `README.md` (canonical, holds all Mermaid diagrams),
+`betting_guide.md` (play rules), `CHANGELOG.md` (every rule change with its evidence).
+
+## Commands
 
 ```sh
-pip install -r requirements.txt
-python cfb_edge.py                        # board + top-10, next Saturday
-python cfb_edge.py --top 15               # ranked outliers only
-python cfb_edge.py --snapshot --report    # persist + paper-log + reports/<weekday>-<date>.md
-python cfb_edge.py --date 2026-09-05 --backfill   # seed DB from a finished week
-python cfb_edge.py --settle               # Sunday: grade paper + real bets
-python cfb_edge.py --paper-show / --bets-show
-python cfb_edge.py --bet <id> --kind spread --side "Team" --line 3.5 --price -110 --stake 5
-python cfb_gui.py                         # local browser dashboard, same functions
+pip install -r requirements.txt -r analysis/requirements-py.txt -r requirements-dev.txt
 
-python soccer_edge.py --build-elo         # once (~3 min): a year of results -> soccer.db
-python soccer_edge.py                     # today's soccer board, every league
-python soccer_edge.py --snapshot --report # persist + paper-log + reports/soccer-<weekday>-<date>.md
-python soccer_edge.py --date 2026-09-13 --backfill   # closers + Elo-as-of for a past day
+# football (default date = next Saturday)
+python cfb_edge.py --top 15
+python cfb_edge.py --snapshot --report              # persist + paper-log + reports/<weekday>-<date>.md
+python cfb_edge.py --date 2026-09-19 --settle       # Sunday: grade paper + bets.csv (date = the slate settled)
+python cfb_edge.py --date 2025-11-15 --backfill     # closers + pre-game FPI for a finished week
+python cfb_edge.py --bet <id> --kind ml --side "Kansas" --price 180 --stake 4
+python cfb_gui.py                                   # stdlib browser dashboard over cfb_edge
 
-python nhl_edge.py --build                # rosters + game logs (2025-26, 2026-27) -> nhl.db
-python nhl_edge.py --calibrate            # walk-forward projection test on last season
-python nhl_edge.py --date 2026-10-07 --snapshot --report   # needs ODDS_API_KEY in .env (gitignored)
-python nhl_edge.py --settle               # grade pending props from boxscores
+# soccer (default date = today)
+python soccer_edge.py --build-elo                   # once, ~3 min; re-runs fetch only missing days
+python soccer_edge.py --snapshot --report --top 15  # every league; --league eng.1,esp.1 to filter
+python soccer_edge.py --date 2026-09-20 --settle
 
-python analysis/01_paper_roi_ci/paper_roi.py      # and the .R twin via Rscript
+# NHL (season opens 2026-10-07)
+python nhl_edge.py --build                          # rosters + game logs both seasons, ~2 min
+python nhl_edge.py --calibrate                      # walk-forward projection test, no lines needed
+python nhl_edge.py --date 2026-10-07 --projections  # no key needed
+python nhl_edge.py --date 2026-10-07 --snapshot --report   # needs ODDS_API_KEY in .env, or --lines-file x.csv
+python nhl_edge.py --settle
+
+# checks — run all four before every push
+ruff check cfb_edge.py cfb_gui.py soccer_edge.py nhl_edge.py analysis tests
+python -m pytest -q tests                           # 77 cases, no network
+python -m pytest -q tests/test_soccer_edge.py -k draw   # one file / one test
+python analysis/05_soccer/soccer_loop.py && "C:/Program Files/R/R-4.4.2/bin/Rscript" analysis/05_soccer/soccer_loop.R
 ```
 
-CI (`.github/workflows/ci.yml`) runs on every push: py_compile, `ruff check` (fix the code,
-never relax the lint), `--help`, schema bootstrap on a scratch DB, and all six analysis
-scripts in both Python and R against empty DBs via the `CFB_DB` / `CFB_SOCCER_DB` / `CFB_NHL_DB` env vars. Run
-`ruff check cfb_edge.py cfb_gui.py analysis tests` and `python -m pytest -q tests` before pushing.
-`ruff.toml` pins the rule set (E4/E7/E9/F) so a ruff upgrade in CI can't move the goalposts.
-
-**Unit tests** live in `tests/test_cfb_edge.py` (47 football cases + 18 soccer + 12 NHL = 77, no network): odds math, every
-signal function including the demotions (FCS, blowout, steam-against, long-dog, overreach,
-ML dead zone), the paper-only banner, Kelly cap,
-ranking order, `_grade`/`_profit` for spread/ML/total, a full SQLite persist → paper-log →
-settle round trip on a tmp DB, the column migration, the bets.csv ledger, the picks-board filter, the day-aware report name, and Wilson-interval
-parity with the analysis loader. When you change a threshold or add a demotion, add a case.
-Also verify by running the board for next Saturday and one `--backfill`
-of a past Saturday, then running all six analysis scripts in **both** runtimes and checking
-the point estimates match. `Rscript` is at `C:\Program Files\R\R-4.4.2\bin` (not on PATH).
+`Rscript` is not on PATH. CI (`.github/workflows/ci.yml`) runs py_compile, ruff (rule set
+pinned in `ruff.toml`; fix the code, never relax the lint), pytest, `--help` for all four
+entry points, schema bootstrap of scratch DBs, and all six analysis scripts in both runtimes
+against empty DBs via `CFB_DB` / `CFB_SOCCER_DB` / `CFB_NHL_DB`. Every new module or script
+must be wired into every one of those steps.
 
 ## Architecture
 
-**`soccer_edge.py` is the pro-soccer twin** (added 2026-09-20): every league on ESPN's
-`soccer/all/scoreboard`, DraftKings three-way odds from the core odds record, and a
-self-built Elo table (`--build-elo` stores results in `soccer.db`; ratings are replayed
-from the `results` table, never stored, so `--backfill` uses the rating as of that date).
-It imports the odds math, `stake_for`, `stakes_banner` and `LIVE_STAKES` from `cfb_edge`
-and must not re-implement them. Signals: `ml3_signal` (Elo H/D/A vs de-vigged 3-way),
-`prob_move_signal`, `total_move_signal`. Demotions: either side with < `ELO_MIN_MATCHES`
-results → strength 0 (⚠unrated); draw picks capped at value (⚠draw-model); > +250 capped
-(⚠long-dog). Its analysis loop is `analysis/05_soccer` (Python + R): 3-way ROI, slices, Elo
-calibration + log-loss vs the closer, and an `ELO_HFA` × `DRAW_BASE` refit on the results
-table. First run 2026-09-20: priors confirmed (HFA 60 / 0.26 is the grid optimum), closer
-sharper than Elo, bigger edge → worse hit. The Elo replay in 05 duplicates `elo_update` on
-purpose (both runtimes need it); keep them identical.
-Tests: `tests/test_soccer_edge.py` (18 cases, no network). `soccer.db` and
-`soccer_leagues.json` are gitignored.
+**One contract per sport, read-only signals.** `cfb_edge` has `Game`/`TeamSide`, `soccer_edge`
+has `Match`/`Side`, `nhl_edge` has `GameCtx`/`Player`/`Prop`. Adapters populate them; signal
+functions and renderers only read them. A new data source means a new adapter, never a change
+to a signal.
 
-**`nhl_edge.py` is the NHL player-prop tool** (added 2026-09-20 for 2026-27). Model: per-game
-rates from NHL public game logs in `nhl.db` (`--build`), shrunk toward last season, tilted
-to the last 10 games, × opponent shots/goals allowed vs league (clamped), → Poisson P(over).
-Lines: The Odds API (`ODDS_API_KEY` env or `.env`) or `--lines-file` CSV; DraftKings' own
-API 403s. Markets: SOG, PTS, G, A, BLK, PPP, goalie SV. Demotions: ⚠overreach ≥ +30% (prior
-from CFB + soccer), ⚠thin < 10 games, ⚠saves-model (saves capped at value: `--calibrate`
-shows the goalie model barely beats naive), ⚠not-starter. `--settle` grades from boxscores
-and stores blocked shots there (game logs lack them). Its loop is `analysis/06_nhl` (Python +
-R): prop ROI and slices (empty until the season), plus the walk-forward calibration, which
-re-implements the shrinkage/recent-tilt/Poisson recipe and must match `--calibrate` to the
-digit — change one, change both. Every NHL rule constant is still a prior. Tests: `tests/test_nhl_edge.py` (12 cases). Never commit `nhl.db`/`.env`.
+**Shared plumbing lives in `cfb_edge` and is imported, never copied:** odds math
+(`american_to_decimal`, `devig_pair`, `kelly_fraction`), `stake_for` (duck-typed on
+`truth_p` / `price` / `strength`), `stakes_banner()`, `LIVE_STAKES`, `_profit`, `UA`,
+`LOCAL_TZ`. `cfb_gui.py` likewise must never recompute a signal; add logic to `cfb_edge.py`
+and call it.
 
-**Soccer tiers are inverted** (2026-09-20, analysis/05 on 287 bets): +8..15% STRONG,
-+15..20% value, ≥ +20% strength 0 ⚠overreach; dogs > +250 strength 0. Hit rate fell
-monotonically with edge (44% → 23%). Draws never reach a stake in practice.
+**Each tool is one file with section headers** (odds math → adapters → model → signals →
+SQLite → rendering/report → main). Don't split them without asking.
 
-**Everything football is in `cfb_edge.py`** (~1,000 lines). `cfb_gui.py` is a stdlib `http.server`
-dashboard that imports it; it must never recompute a signal or duplicate a rule — add
-logic to `cfb_edge.py` and have the GUI call it. Its tests are `tests/test_cfb_gui.py`.
-Sections of `cfb_edge.py`: odds math → ESPN adapters →
-signals → SQLite → bets ledger → rendering → report → main. Don't split it without asking.
+**Signal shape is identical across sports:** `strength` 2/1/0 with a label, `edge`,
+`truth_p`, `price`; stakes fire only on strength ≥ 1 with a `truth_p`. Every demotion sets
+strength and a ⚠note. Market-only signals (line move, prob move, total move) are strength 1,
+informational, never staked.
 
-**Data flow:** `fetch_scoreboard` → `enrich_games` (parallel core-odds + predictor per game)
-→ `apply_powerindex` → `list[Game]` → `spread_signal / ml_signal / spread_move_signal /
-total_move_signal` → `render_board` / `render_top` / `write_report` / `db_persist` /
-`db_paper_log`.
+**Backfill is honest by construction.** Football: ESPN freezes `current` at the closer and
+the predictor at game morning. Soccer: ratings are never stored; `elo_as_of(date)` replays the
+`results` table, so a past date sees only what was known then. Backfilled rows carry
+`backfill=1` so analysis can split them. "Settled" everywhere means `completed=1 AND both
+scores present` — never a result-column filter that could drop losers.
 
-**The unified contract is `Game` / `TeamSide`.** Any new source (a keyed multi-book odds API,
-another rating system) must populate these; signals and rendering only read them.
+**SQLite:** `SCHEMA` is `CREATE IF NOT EXISTS`; new columns go in `MIGRATIONS` and are ALTERed
+onto existing DBs. Never drop a column. `snapshots`/`props` are append-only time series; the
+analysis loaders take the last row per game as the closer.
 
-**Signals in trust order:** ATS (FPI margin vs spread) → ML (FPI win prob vs de-vigged
-moneyline) → line move / total move (market-only, informational, never staked).
-`Signal.strength` is 2/1/0; stakes only fire on ≥1 and only when `truth_p` exists.
+**The analysis loop is the source of truth for every rule constant.** Six scripts, each a
+Python + R pair sharing SQL, bins and the closed-form Wilson interval: `01`–`04` football
+(`data.db`), `05` soccer, `06` NHL. Point estimates must match to the digit; only bootstrap
+CIs may differ in the last place. To change a constant: run both runtimes, confirm they
+agree, edit the constants block, bump `FINDINGS_AS_OF`, update the README status table
+(football "Before you bet", soccer "Honest status", NHL calibration table), add a
+`CHANGELOG.md` entry citing the run, commit, push, cut a `rules-<date>` release. `05` and `06`
+re-implement the Elo replay and the projection recipe on purpose (both runtimes need them);
+if you change `elo_update` or the shrinkage/recent-tilt/Poisson recipe in a tool, change
+the analysis twin too.
 
-**Demotions are deliberate, keep them:**
-- Either side missing an FPI rating (= FCS) → strength 0. FPI assigns FCS teams a generic
-  rating, so the "edge" is noise. This was the first bug: without it, UT Martin +41.5 and
-  Colgate +23.5 were the top plays on the board.
-- |spread| ≥ 28 → cap at lean. The normal-margin cover model with SD 13.5 overstates edges
-  on blowout numbers.
-- Line moved ≥ 1.5 pts against FPI → drop one tier and print ⚠market-moved-against.
-- ML dogs longer than +250 → cap at "ML value"; > +400 or < −300 → no stake.
-- Δ ≥ 8 (`SPREAD_OVERREACH_PTS`) → cap at lean, ⚠overreach. Added 2026-09-20 from the 2025
-  backfill: Δ8+ covered 42.5% on 40 bets. The bigger the gap, the more the market knows.
-- ML dogs +100..+150 (`ML_DEAD_ZONE`) → strength 0, ⚠dead-zone-dog. 30% hit on 63 bets.
-- `LIVE_STAKES = False` → every board/report prints `STAKES: PAPER ONLY`. Flip it only when
-  a bucket's 95% CI in `analysis/01` clears zero. Stakes are still computed and paper-logged.
-- Every ticket capped at 5% of bankroll after quarter-Kelly.
+## What the data has said so far (don't re-litigate without a new run)
 
-**The 2025 season is backfilled** (16 Saturdays, 2025-08-23 → 2025-12-06, done 2026-09-20)
-so the paper ledger has ~500 backfilled bets behind the live ones. ESPN still serves closers
-and the frozen pre-game predictor for last season; re-run `--date <2025 Saturday> --backfill`
-on a fresh DB to rebuild it.
-
-**Backfill = closing line + pre-game FPI.** For finished games ESPN keeps `open`, freezes
-`current` at the closer, and the predictor's `lastModified` is game morning. `--backfill`
-persists that and paper-logs with `backfill=1` so analysis can split live vs backfilled.
-"Settled" in analysis = `completed=1 AND both scores present` — never a filter that could
-silently drop losers (the horses survivorship lesson).
-
-**SQLite migrations:** `SCHEMA` is `CREATE IF NOT EXISTS`; add new columns to `MIGRATIONS`
-and `_migrate_columns` ALTERs them onto existing DBs. Never drop a column.
-
-**The analysis loop** (`analysis/`, Python + R twins) is the only source of truth for the
-constants block at the top of `cfb_edge.py` (`SPREAD_OUTLIER_PTS`, `MARGIN_SD`, `STEAM_PTS`,
-…). To refresh: run all six scripts in both runtimes, confirm they agree, change constants,
-bump `FINDINGS_AS_OF`, update the "Before you bet" table in README.md, commit + push.
+- Across all three sports the closer is sharper than the model, and **the bigger the
+  model-vs-market gap, the worse the bet.** Football Δ8+ covers 42.5%; soccer hit rate falls
+  from 44% (edge 8–15%) to 23% (50%+). This is why:
+  - football demotes Δ ≥ 8 (`SPREAD_OVERREACH_PTS`) and never stakes ML dogs +100..+150;
+  - soccer tiers are **inverted**: +8–15% STRONG, +15–20% value, ≥ +20% strength 0;
+    dogs > +250 never; draws can only show edge past +250 so they never reach a stake;
+  - NHL borrows a ≥ +30% overreach demotion as a prior.
+- `LIVE_STAKES = False` for all three. Flip it only when a bucket's 95% CI in the ROI
+  script clears zero. Stakes are still computed and paper-logged so the sample grows.
+- NHL `--calibrate` (walk-forward, 2025-26): shots and points beat naive clearly and are
+  calibrated; goalie saves barely beat naive, hence `SAVES_MAX_STRENGTH = 1`. No historical
+  prop prices exist, so NHL ROI is untested until the season.
+- Football demotions that predate the loop and stay: FCS side (generic FPI rating; the first
+  bug put UT Martin +41.5 on top of the board), |spread| ≥ 28, steam against FPI, dogs > +250
+  capped, price window −300..+400, 5% bankroll cap after quarter-Kelly.
 
 ## Gotchas
 
-- **ESPN 403s a full Chrome User-Agent** (Akamai). `UA = {"User-Agent": "Mozilla/5.0"}` works.
-  Verified 2026-09-09.
-- **Windows console is cp1252.** `main()` and `analysis/_shared/load_data.py` reconfigure
-  stdout/stderr to UTF-8 because the output uses Δ, ≥, →. Don't remove it.
+- **ESPN 403s a full Chrome User-Agent** (Akamai). `{"User-Agent": "Mozilla/5.0"}` works.
+  DraftKings' own sportsbook API also 403s; that is why NHL props need The Odds API.
+- **ESPN soccer `all/scoreboard` emits `null` entries inside a match's `odds` list**; skip
+  non-dict entries or a whole day's build fails.
+- **NHL `stats/rest/en/team` lists every defunct franchise**; use `standings/now` for the
+  32 clubs. Boxscores have blocked shots but not power-play points (game logs are the
+  reverse); `--settle` fills each from the right source.
+- **`--settle` needs `--date` of the slate being settled** for football and soccer; the
+  default date is the *next* slate.
+- **`settle_bets` matches the ledger side by prefix/substring** (`_side_is_home`) and leaves
+  ambiguous names unsettled with a stderr note. The first version never matched short names
+  and graded every ticket as the away side.
+- **Windows console is cp1252.** `main()` and the analysis loaders reconfigure stdout to
+  UTF-8 because output uses Δ, ≥, →, ·. Don't remove it. When patching docs from Python,
+  those glyphs are why substring matches silently fail; prefer `Edit` or match on ASCII.
 - **`bets.backfill` is a pandas method name.** Use `df["backfill"]`.
-- **`settle_bets` matches the ledger side by prefix/substring** against the full ESPN name
-  (`_side_is_home`). Ambiguous or unknown names are left unsettled with a stderr note. The
-  first version compared "Missouri State" to "Missouri State Bears", never matched, and graded
-  every ticket as the away side (fixed 2026-09-20).
-- **Only DraftKings** is exposed by ESPN. Line shopping across books needs a keyed API.
-- Kickoffs are rendered in America/Chicago.
+- In R, `dbGetQuery(..., params = list())` errors; the NHL loader only passes params when
+  they exist.
+- Kickoffs render in America/Chicago. Only DraftKings is exposed by ESPN.
 
 ## Conventions
 
-- `README.md` is canonical and holds the Mermaid diagrams; keep the "Before you bet" table
-  current with the latest analysis run.
-- `CHANGELOG.md` gets an entry for every rule/constant change and every fix, citing the
-  analysis run that justified it. Weekly report releases are not changelog entries.
 - Every commit gets pushed in the same step. Remote: `github.com/wbp318/cfb_soccer_nhl_2026_2027`
-  (renamed from `cfb_2026` → `cfb_pro_soccer_2026` → this, all on 2026-09-20; GitHub redirects
-  the old names). The local folder is still `C:\Users\wbp31\cfb_2026` on purpose — the
-  scheduled task and the Claude memory dir point at it.
-- `main` is protected (set 2026-09-09): no force-push, no deletion, the three CI checks must
-  pass; the owner (admin) can bypass the check requirement. Never `push --force` to main;
-  if history needs rewriting, do it on a branch and open a PR.
-- Do not commit `data.db`, `soccer.db`, `nhl.db`, `soccer_leagues.json`, `bets.csv`, `.env`,
-  `snapshot.log`, `analysis/_out/` (gitignored). Never print or paste the Odds API key.
-- `.gitattributes` marks every language linguist-detectable on purpose.
-- Honesty in the README is load-bearing. Don't soften "inconclusive" into "promising".
+  (renamed twice on 2026-09-20; GitHub redirects old names). The local folder stays
+  `C:\Users\wbp31\cfb_2026` on purpose: the scheduled task and the Claude memory dir point at it.
+- `main` is protected: no force-push, CI must pass (admin can bypass). Rewrite history on a
+  branch and open a PR.
+- Releases: every report run is a release tagged `<weekday>-<date>`, `soccer-<weekday>-<date>`
+  or `nhl-<weekday>-<date>` (same-day refresh adds `-HHMM`, earlier release stays); rule
+  changes are `rules-<date>`; new analysis scripts are `analysis-0N-<sport>-<date>`. Attach the
+  report or `CHANGELOG.md`, use `--target main`, feed stdin from `/dev/null`.
+- `CHANGELOG.md` gets an entry for every rule/constant change and every fix, citing the
+  analysis run. Weekly report releases are not changelog entries.
+- Every Mermaid block must parse; the scratch check is `node check.mjs README.md
+  analysis/README.md` with `mermaid@11` + `jsdom` installed in a temp folder. Update the
+  diagrams whenever a script, demotion, test count or module is added.
+- Never commit `data.db`, `soccer.db`, `nhl.db`, `soccer_leagues.json`, `bets.csv`, `.env`,
+  `snapshot.log`, `analysis/_out/`. Never print, paste, or go looking for the Odds API key in
+  other repos; the user puts it in `.env`.
+- License is proprietary, all rights reserved (see `LICENSE`); the repo is public on purpose.
+  Never open-source it or soften the license text.
+- Honesty in the README is load-bearing. Don't soften "inconclusive" into "promising", and
+  don't promise winners; report the sample size and the interval.
