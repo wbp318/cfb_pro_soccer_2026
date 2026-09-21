@@ -56,12 +56,14 @@ jobs:
         env:
           CFB_DB: ${{ runner.temp }}/ci.db
           CFB_SOCCER_DB: ${{ runner.temp }}/soccer_ci.db
+          CFB_NHL_DB: ${{ runner.temp }}/nhl_ci.db
         run: |
           python analysis/01_paper_roi_ci/paper_roi.py
           python analysis/02_fpi_calibration/fpi_calibration.py
           python analysis/03_line_move/line_move.py
           python analysis/04_deep_dive/deep_dive.py
           python analysis/05_soccer/soccer_loop.py
+          python analysis/06_nhl/nhl_loop.py
 
   r:
     name: R twins
@@ -93,14 +95,17 @@ jobs:
           pip install -r requirements.txt
           python cfb_edge.py --paper-show --db "$RUNNER_TEMP/ci.db"
           python soccer_edge.py --paper-show --db "$RUNNER_TEMP/soccer_ci.db"
+          python nhl_edge.py --paper-show --db "$RUNNER_TEMP/nhl_ci.db"
 
       - name: Analysis (empty DB)
         env:
           CFB_DB: ${{ runner.temp }}/ci.db
           CFB_SOCCER_DB: ${{ runner.temp }}/soccer_ci.db
+          CFB_NHL_DB: ${{ runner.temp }}/nhl_ci.db
         run: |
           Rscript analysis/01_paper_roi_ci/paper_roi.R
           Rscript analysis/02_fpi_calibration/fpi_calibration.R
           Rscript analysis/03_line_move/line_move.R
           Rscript analysis/04_deep_dive/deep_dive.R
           Rscript analysis/05_soccer/soccer_loop.R
+          Rscript analysis/06_nhl/nhl_loop.R

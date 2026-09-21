@@ -4,6 +4,22 @@ All notable changes to `cfb_edge.py` and the analysis loop. Rule changes cite th
 run that justified them; nothing in the constants block changes without one. Weekly report
 releases (`<weekday>-<date>` tags) are not listed here; see the GitHub releases page.
 
+## [2026-09-20f] — analysis/06: the NHL analysis loop (Python + R)
+
+### Added
+- **`analysis/06_nhl/nhl_loop.{py,R}`** + `_shared/load_nhl.{py,R}`. A. prop ROI by market ×
+  side × strength with bootstrap CI and B. slices by edge band / market / side (both empty until
+  2026-10-07); C. walk-forward projection calibration on the 46,551 stored game-log rows,
+  re-implementing the shrinkage + recent-10 + Poisson recipe in both runtimes. All 27
+  calibration rows agree to 1e-15 and match `nhl_edge.py --calibrate`: shots log-loss 0.4742
+  vs naive 0.5397, points 0.6097 vs 0.6543, saves 0.6131 vs 0.6162. CI runs both against an
+  empty `CFB_NHL_DB`.
+
+### Docs
+- README: overview, inside-analysis, analysis-loop, weekly-loop, NHL-week and CI diagrams show
+  `06`; running blocks, NHL status, roadmap and file table updated. `analysis/README.md`
+  (layout, diagram, running, wiring-back), `CLAUDE.md`. 27 Mermaid blocks parse.
+
 ## [2026-09-20e] — NHL player-prop module, repo renamed to cfb_soccer_nhl_2026_2027
 
 ### Added

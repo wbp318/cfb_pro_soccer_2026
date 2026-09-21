@@ -195,6 +195,7 @@ flowchart TB
         SIG2 --> OUT2["board · --top\nreports/soccer-WEEKDAY-DATE.md\nsoccer.db paper ledger"]
     end
     OUT2 -.->|"soccer.db"| LS
+    OUT3 -.->|"nhl.db"| LN
 
     subgraph NHL["1c · NHL props — nhl_edge.py (NHL public API + The Odds API)"]
         direction LR
@@ -216,12 +217,13 @@ flowchart TB
         L --> A3["03 line move\nfollow-the-money"]
         L --> A4["04 deep dive\nhit % + ROI by edge · price · |spread|\ncalibration"]
         LS["_shared/load_soccer\n.py ⇄ .R"] --> A5["05 soccer loop\n3-way ROI · slices · Elo calibration\nHFA × draw-base refit"]
-        A1 & A2 & A3 & A4 & A5 --> AGREE{"Python == R?"}
+        LN["_shared/load_nhl\n.py ⇄ .R"] --> A6["06 NHL loop\nprop ROI · slices\nwalk-forward projection calibration"]
+        A1 & A2 & A3 & A4 & A5 & A6 --> AGREE{"Python == R?"}
     end
 
     subgraph GUARD["4 · Guard rails (no internet, no real data)"]
         direction LR
-        T["tests/\npytest · 47 cases\nodds math · signals · grading · SQLite"]
+        T["tests/\npytest · 77 cases\nodds math · signals · grading · SQLite"]
         CI["GitHub Actions\npy 3.12 + 3.13 · R 4.4\nlint · tests · empty-DB runs"]
     end
 
@@ -299,9 +301,11 @@ flowchart LR
     LG --> S4
     SDB[("soccer.db")] --> LSB["load_soccer_bets() · load_soccer_matches()\nload_results()"]
     LSB --> S5["05 soccer_loop\nQ-A: does the 3-way ledger make money? (bootstrap CI)\nQ-B: by edge band · price band · pick\nQ-C: is Elo calibrated? log-loss vs the closer\nQ-D: refit ELO_HFA × DRAW_BASE on the results table"]
+    NDB[("nhl.db")] --> LNB["load_nhl_bets() · load_game_logs()"]
+    LNB --> S6["06 nhl_loop\nQ-A: does the prop ledger make money? (bootstrap CI)\nQ-B: by edge band · market · side\nQ-C: walk-forward projection calibration\nlog-loss vs league average · reliability bins"]
 
-    S1 & S2 & S3 & S4 & S5 --> OUTC["analysis/_out/*.csv\n(gitignored)"]
-    S1 & S2 & S3 & S4 & S5 --> STD["stdout tables\nsame numbers in .py and .R"]
+    S1 & S2 & S3 & S4 & S5 & S6 --> OUTC["analysis/_out/*.csv\n(gitignored)"]
+    S1 & S2 & S3 & S4 & S5 & S6 --> STD["stdout tables\nsame numbers in .py and .R"]
 ```
 
 The R and Python versions of each script share the same SQL string, the same bins, and the
@@ -449,7 +453,7 @@ sequenceDiagram
     Note over You,An: Sun morning
     You->>Tool: --settle
     Tool->>DB: finals → grade paper_bets + bets.csv
-    You->>An: python analysis/…/*.py  and  Rscript analysis/…/*.R (all five: 01–04 football, 05 soccer)
+    You->>An: python analysis/…/*.py  and  Rscript analysis/…/*.R (all six: 01–04 football, 05 soccer, 06 NHL)
     An-->>You: same numbers twice, or a bug
     An-->>You: 04 deep dive — which bucket a rule change would actually touch
     You->>Tool: update constants (thresholds, demotions, LIVE_STAKES), bump FINDINGS_AS_OF
@@ -594,8 +598,11 @@ flowchart LR
     SDB[("soccer.db")] --> L3["_shared/load_soccer.py"]
     SDB --> L4["_shared/load_soccer.R"]
     L3 & L4 --> S5["05 soccer loop\n3-way ROI · slices · Elo calibration\nHFA × draw-base refit"]
-    S1 & S2 & S3 & S4 & S5 --> V{"Py == R ?"}
-    V -- yes --> C["update constants in cfb_edge.py / soccer_edge.py\nSPREAD_OVERREACH_PTS · ML_DEAD_ZONE · LIVE_STAKES\nELO_HFA · DRAW_BASE · bump FINDINGS_AS_OF\n+ CHANGELOG.md entry"]
+    NDB[("nhl.db")] --> L5["_shared/load_nhl.py"]
+    NDB --> L6["_shared/load_nhl.R"]
+    L5 & L6 --> S6["06 NHL loop\nprop ROI · slices\nwalk-forward projection calibration"]
+    S1 & S2 & S3 & S4 & S5 & S6 --> V{"Py == R ?"}
+    V -- yes --> C["update constants in cfb_edge.py / soccer_edge.py / nhl_edge.py\nSPREAD_OVERREACH_PTS · ML_DEAD_ZONE · LIVE_STAKES\nELO_HFA · DRAW_BASE · SHRINK_GAMES · RECENT_WEIGHT\nbump FINDINGS_AS_OF + CHANGELOG.md entry"]
     V -- no --> BUG["fix the runtime that's wrong"]
 ```
 
@@ -687,6 +694,7 @@ python analysis/02_fpi_calibration/fpi_calibration.py
 python analysis/03_line_move/line_move.py
 python analysis/04_deep_dive/deep_dive.py
 python analysis/05_soccer/soccer_loop.py          # reads soccer.db (CFB_SOCCER_DB overrides)
+python analysis/06_nhl/nhl_loop.py                # reads nhl.db (CFB_NHL_DB overrides)
 
 # R (install packages once; see the PATH diagram above)
 Rscript -e 'install.packages(readLines("analysis/requirements-r.txt"), repos="https://cloud.r-project.org")'
@@ -695,6 +703,7 @@ Rscript analysis/02_fpi_calibration/fpi_calibration.R
 Rscript analysis/03_line_move/line_move.R
 Rscript analysis/04_deep_dive/deep_dive.R
 Rscript analysis/05_soccer/soccer_loop.R
+Rscript analysis/06_nhl/nhl_loop.R
 ```
 
 Outputs land in `analysis/_out/` (gitignored). See [`analysis/README.md`](analysis/README.md).
@@ -711,15 +720,15 @@ they reach the laptop on a Saturday morning.
 flowchart LR
     PUSH["git push / PR"] --> PY["python job\n(3.12 and 3.13 matrix)"]
     PUSH --> RJ["R job\n(r-lib/actions, R 4.4)"]
-    PY --> P1["py_compile\ncfb_edge.py + analysis/*.py"]
+    PY --> P1["py_compile\ncfb_edge.py + soccer_edge.py + nhl_edge.py + analysis/*.py"]
     P1 --> P2["ruff check\n(rule set pinned in ruff.toml)"]
-    P2 --> PT["pytest tests/\n47 cases · no network"]
+    P2 --> PT["pytest tests/\n77 cases · no network"]
     PT --> P3["cfb_edge.py --help\n(argparse still parses)"]
     P3 --> P4["--paper-show --db scratch.db\n(SCHEMA + MIGRATIONS bootstrap)"]
-    P4 --> P5["run all 5 analysis .py\nagainst empty scratch DBs\nCFB_DB + CFB_SOCCER_DB env vars"]
+    P4 --> P5["run all 6 analysis .py\nagainst empty scratch DBs\nCFB_DB · CFB_SOCCER_DB · CFB_NHL_DB"]
     RJ --> R1["install DBI · RSQLite · dplyr · boot"]
     R1 --> R2["bootstrap the same scratch DB\nwith the Python tool"]
-    R2 --> R3["run all 5 analysis .R\nagainst them"]
+    R2 --> R3["run all 6 analysis .R\nagainst them"]
     P5 & R3 --> OK{"green?"}
     OK -- yes --> M["merge / it's safe to run Saturday"]
     OK -- no --> FIX["fix the code, not the check"]
@@ -1316,7 +1325,8 @@ sequenceDiagram
     participant Tool as nhl_edge.py
     participant DB as nhl.db
     participant Book as The Odds API
-    Note over You,Book: Monday (and before opening night)
+    participant An as analysis/06 (py + R)
+    Note over You,An: Monday (and before opening night)
     You->>Tool: --build
     Tool->>DB: rosters + game logs (both seasons)
     Note over You,Book: game day, ~2 h before first puck (starters posted)
@@ -1328,12 +1338,15 @@ sequenceDiagram
     Note over You,Book: next morning
     You->>Tool: --settle
     Tool->>DB: boxscore actuals → W/L/P · blocks into game_logs
-    Note over You,Book: monthly, once the ledger has a few hundred props
-    You->>Tool: analysis/06 (to build): ROI by market · side · edge band · calibration vs posted lines
+    Note over You,Book: weekly once the ledger fills — runs today on the game logs
+    You->>An: python analysis/06_nhl/nhl_loop.py  and  Rscript …/nhl_loop.R
+    An-->>You: A prop ROI (empty pre-season) · B slices · C walk-forward calibration — same numbers twice
 ```
 
-**Honest status.** No NHL analysis run exists and cannot until games are played. The
-projection is validated walk‑forward for shots and points and weak for saves. Every threshold
+**Honest status.** `analysis/06_nhl` (Python + R, agree to 1e‑15 on all 27 calibration rows)
+runs today on the stored game logs and reproduces the table above; its ROI and slice
+sections stay empty until games are played. The projection is validated walk‑forward for
+shots and points and weak for saves. Every threshold
 in the NHL block is a prior; the overreach demotion at +30% is borrowed from what football and
 soccer both showed. Paper only.
 
@@ -1343,9 +1356,9 @@ tier is about 500 requests a month; one game day with ten games costs eleven.
 
 ## Roadmap (only if the numbers earn it)
 
-- **`analysis/06_nhl`.** Python + R twins over `nhl.db` once the ledger has a few hundred
-  props: ROI by market × side × edge band, projection calibration against *posted* lines
-  (not synthetic ones), and whether the +30% overreach prior holds for props.
+- **`analysis/06_nhl` against posted lines.** The twins exist and calibrate the projection
+  today; once the ledger has a few hundred props, sections A and B will say whether the +30%
+  overreach prior holds for props and which markets carry the edge.
 - **Closing‑line value for soccer and NHL.** `snapshots`/`props` hold the line at log time;
   comparing it to the closer answers "are we early to the right side?" long before the
   win/loss sample can.
@@ -1379,7 +1392,7 @@ contact William Brooks Parker via [github.com/wbp318](https://github.com/wbp318)
 | `cfb_gui.py` | optional local browser dashboard over `cfb_edge.py` (stdlib only) |
 | `betting_guide.md` | live‑play reference: thresholds, what to fire on, discipline |
 | `CLAUDE.md` | conventions for Claude Code |
-| `analysis/` | Python + R twins, offline, read‑only: `01`–`04` football (`data.db`), `05` soccer (`soccer.db`) |
+| `analysis/` | Python + R twins, offline, read‑only: `01`–`04` football (`data.db`), `05` soccer (`soccer.db`), `06` NHL (`nhl.db`) |
 | `tests/` | pytest unit tests, no network — run `python -m pytest -q tests` |
 | `.github/` | CI workflow + dependabot (Actions weekly; pip security‑only) |
 | `ruff.toml`, `requirements-dev.txt` | lint config and dev deps (ruff, pytest) |

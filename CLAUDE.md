@@ -38,8 +38,8 @@ python analysis/01_paper_roi_ci/paper_roi.py      # and the .R twin via Rscript
 ```
 
 CI (`.github/workflows/ci.yml`) runs on every push: py_compile, `ruff check` (fix the code,
-never relax the lint), `--help`, schema bootstrap on a scratch DB, and all five analysis
-scripts in both Python and R against empty DBs via the `CFB_DB` / `CFB_SOCCER_DB` env vars. Run
+never relax the lint), `--help`, schema bootstrap on a scratch DB, and all six analysis
+scripts in both Python and R against empty DBs via the `CFB_DB` / `CFB_SOCCER_DB` / `CFB_NHL_DB` env vars. Run
 `ruff check cfb_edge.py cfb_gui.py analysis tests` and `python -m pytest -q tests` before pushing.
 `ruff.toml` pins the rule set (E4/E7/E9/F) so a ruff upgrade in CI can't move the goalposts.
 
@@ -50,7 +50,7 @@ ranking order, `_grade`/`_profit` for spread/ML/total, a full SQLite persist →
 settle round trip on a tmp DB, the column migration, the bets.csv ledger, the picks-board filter, the day-aware report name, and Wilson-interval
 parity with the analysis loader. When you change a threshold or add a demotion, add a case.
 Also verify by running the board for next Saturday and one `--backfill`
-of a past Saturday, then running all five analysis scripts in **both** runtimes and checking
+of a past Saturday, then running all six analysis scripts in **both** runtimes and checking
 the point estimates match. `Rscript` is at `C:\Program Files\R\R-4.4.2\bin` (not on PATH).
 
 ## Architecture
@@ -78,8 +78,10 @@ Lines: The Odds API (`ODDS_API_KEY` env or `.env`) or `--lines-file` CSV; DraftK
 API 403s. Markets: SOG, PTS, G, A, BLK, PPP, goalie SV. Demotions: ⚠overreach ≥ +30% (prior
 from CFB + soccer), ⚠thin < 10 games, ⚠saves-model (saves capped at value: `--calibrate`
 shows the goalie model barely beats naive), ⚠not-starter. `--settle` grades from boxscores
-and stores blocked shots there (game logs lack them). No NHL analysis run exists; every
-constant is a prior. Tests: `tests/test_nhl_edge.py` (12 cases). Never commit `nhl.db`/`.env`.
+and stores blocked shots there (game logs lack them). Its loop is `analysis/06_nhl` (Python +
+R): prop ROI and slices (empty until the season), plus the walk-forward calibration, which
+re-implements the shrinkage/recent-tilt/Poisson recipe and must match `--calibrate` to the
+digit — change one, change both. Every NHL rule constant is still a prior. Tests: `tests/test_nhl_edge.py` (12 cases). Never commit `nhl.db`/`.env`.
 
 **Soccer tiers are inverted** (2026-09-20, analysis/05 on 287 bets): +8..15% STRONG,
 +15..20% value, ≥ +20% strength 0 ⚠overreach; dogs > +250 strength 0. Hit rate fell
@@ -134,7 +136,7 @@ and `_migrate_columns` ALTERs them onto existing DBs. Never drop a column.
 
 **The analysis loop** (`analysis/`, Python + R twins) is the only source of truth for the
 constants block at the top of `cfb_edge.py` (`SPREAD_OUTLIER_PTS`, `MARGIN_SD`, `STEAM_PTS`,
-…). To refresh: run all five scripts in both runtimes, confirm they agree, change constants,
+…). To refresh: run all six scripts in both runtimes, confirm they agree, change constants,
 bump `FINDINGS_AS_OF`, update the "Before you bet" table in README.md, commit + push.
 
 ## Gotchas
