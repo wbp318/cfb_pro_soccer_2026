@@ -1376,9 +1376,10 @@ tier is about 500 requests a month; one game day with ten games costs eleven.
 
 ## License
 
-**Proprietary — all rights reserved.** The code and the play rules are viewable here for
-transparency, but they are not open source: no copying, running, deploying, or using the
-signals to set or advise on lines without a written license. Commercial licenses (including
+**Proprietary — all rights reserved.** The code, the projection and rating models, and the
+play rules for all three sports are viewable here for transparency, but they are not open
+source: no copying, running, deploying, or using the signals to set or advise on lines or
+player props without a written license. Commercial licenses (including
 an outright sale) are available to sportsbooks and handicappers — see [LICENSE](LICENSE) and
 contact William Brooks Parker via [github.com/wbp318](https://github.com/wbp318).
 

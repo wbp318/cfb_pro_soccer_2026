@@ -2,9 +2,11 @@ Copyright (c) 2026 William Brooks Parker, East Carroll Parish, Louisiana. All ri
 
 PROPRIETARY SOFTWARE LICENSE
 
-This repository ("the Software") — including cfb_edge.py, cfb_gui.py, the
-analysis/ scripts, the tests, betting_guide.md, the README, and every report,
-diagram, threshold, and rule set contained here — is the copyrighted work of
+This repository ("the Software") — including cfb_edge.py, cfb_gui.py,
+soccer_edge.py, nhl_edge.py, the analysis/ scripts (Python and R), the tests,
+betting_guide.md, CHANGELOG.md, the README, and every report, diagram,
+projection model, Elo rating method, threshold, and rule set contained here —
+is the copyrighted work of
 William Brooks Parker ("the owner"), an individual domiciled in East Carroll
 Parish, Louisiana, and is made publicly viewable for portfolio and
 transparency purposes only.
@@ -15,8 +17,10 @@ transparency purposes only.
 2. WHAT YOU MAY NOT DO WITHOUT A WRITTEN LICENSE FROM THE OWNER
    - Copy, download for use, run, or deploy the Software or any part of it.
    - Modify, translate, port, or create derivative works from it.
-   - Use it, or any signal, threshold, rule, or output it produces, to price,
-     set, move, or hedge betting lines, or to advise any bettor or client.
+   - Use it, or any signal, projection, rating, threshold, rule, or output it
+     produces — for college football, soccer, NHL player props, or any other
+     market — to price, set, move, or hedge betting lines or player props, or
+     to advise any bettor or client.
    - Sell, sublicense, rent, distribute, or otherwise make it available to any
      third party, including inside a product or service.
    - Train, fine-tune, or evaluate any machine-learning model on it.

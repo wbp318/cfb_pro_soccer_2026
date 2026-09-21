@@ -4,6 +4,12 @@ All notable changes to `cfb_edge.py` and the analysis loop. Rule changes cite th
 run that justified them; nothing in the constants block changes without one. Weekly report
 releases (`<weekday>-<date>` tags) are not listed here; see the GitHub releases page.
 
+## [2026-09-20g] — License covers all three tools
+
+- `LICENSE` and the README license section now name `soccer_edge.py`, `nhl_edge.py`, the R
+  scripts, `CHANGELOG.md`, the projection and Elo models, and player props explicitly. Terms
+  unchanged: proprietary, all rights reserved, view only, commercial licenses available.
+
 ## [2026-09-20f] — analysis/06: the NHL analysis loop (Python + R)
 
 ### Added
