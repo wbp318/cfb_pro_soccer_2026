@@ -4,6 +4,17 @@ All notable changes to `cfb_edge.py` and the analysis loop. Rule changes cite th
 run that justified them; nothing in the constants block changes without one. Weekly report
 releases (`<weekday>-<date>` tags) are not listed here; see the GitHub releases page.
 
+## [2026-09-20h] — Every language counts on the GitHub language bar
+
+- `.gitattributes` rewritten: every extension linguist would hide as documentation, data or
+  configuration is now `linguist-detectable` with an explicit language — Python, R, RMarkdown,
+  Jupyter, SQL, JavaScript, TypeScript, HTML, CSS, Batchfile, PowerShell, Shell, YAML, TOML,
+  JSON, INI, CSV, Text, Markdown, Dockerfile, Makefile, plus `.gitattributes` and `.gitignore`
+  themselves. `.github/`, `reports/`, `analysis/` and `tests/` are un-vendored and
+  un-generated. Line endings pinned to LF, CRLF for `.bat`, `.cmd`, `.ps1`. Linguist language
+  names with spaces use the hyphenated aliases (git rejects quoted values). README files table
+  gained the row.
+
 ## [2026-09-20g] — License covers all three tools
 
 - `LICENSE` and the README license section now name `soccer_edge.py`, `nhl_edge.py`, the R
