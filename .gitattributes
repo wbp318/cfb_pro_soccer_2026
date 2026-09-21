@@ -1,15 +1,58 @@
 # Make every language in the repo count toward GitHub's language bar.
-# Linguist normally hides "documentation" and "data" files and ignores
-# vendored paths; we want Python, R, Markdown, Batchfile, SQL and HTML all shown.
-*.py    linguist-detectable=true linguist-language=Python
-*.R     linguist-detectable=true linguist-language=R
-*.md    linguist-detectable=true linguist-documentation=false
-*.html  linguist-detectable=true
-*.bat   linguist-detectable=true linguist-language=Batchfile
-*.sql   linguist-detectable=true
-*.txt   linguist-detectable=true linguist-language=Text
-*.csv   linguist-detectable=true
-reports/**  linguist-documentation=false linguist-generated=false
-analysis/** linguist-vendored=false
+# Linguist normally hides "documentation", "data" and "configuration" files and
+# ignores vendored/generated paths; we want everything shown: Python, R, Markdown,
+# YAML, TOML, Batchfile, PowerShell, shell, SQL, HTML, CSS, JavaScript, JSON, CSV,
+# Text, Dockerfile, Makefile, and the dotfiles themselves.
+
+# code
+*.py     linguist-detectable=true linguist-language=Python
+*.R      linguist-detectable=true linguist-language=R
+*.r      linguist-detectable=true linguist-language=R
+*.Rmd    linguist-detectable=true linguist-language=RMarkdown
+*.ipynb  linguist-detectable=true linguist-language="Jupyter Notebook"
+*.sql    linguist-detectable=true linguist-language=SQL
+*.js     linguist-detectable=true linguist-language=JavaScript
+*.mjs    linguist-detectable=true linguist-language=JavaScript
+*.ts     linguist-detectable=true linguist-language=TypeScript
+*.html   linguist-detectable=true linguist-language=HTML
+*.css    linguist-detectable=true linguist-language=CSS
+
+# scripts / shells
+*.bat    linguist-detectable=true linguist-language=Batchfile
+*.cmd    linguist-detectable=true linguist-language=Batchfile
+*.ps1    linguist-detectable=true linguist-language=PowerShell
+*.psm1   linguist-detectable=true linguist-language=PowerShell
+*.psd1   linguist-detectable=true linguist-language=PowerShell
+*.sh     linguist-detectable=true linguist-language=Shell
+*.bash   linguist-detectable=true linguist-language=Shell
+
+# config / data
+*.yml    linguist-detectable=true linguist-language=YAML
+*.yaml   linguist-detectable=true linguist-language=YAML
+*.toml   linguist-detectable=true linguist-language=TOML
+*.json   linguist-detectable=true linguist-language=JSON
+*.ini    linguist-detectable=true linguist-language=INI
+*.cfg    linguist-detectable=true linguist-language=INI
+*.csv    linguist-detectable=true linguist-language=CSV
+*.txt    linguist-detectable=true linguist-language=Text
+*.env.example linguist-detectable=true linguist-language=Shell
+
+# docs
+*.md     linguist-detectable=true linguist-documentation=false linguist-language=Markdown
+LICENSE  linguist-detectable=true linguist-documentation=false linguist-language=Text
+Dockerfile linguist-detectable=true linguist-language=Dockerfile
+Makefile   linguist-detectable=true linguist-language=Makefile
+
+# dotfiles and paths linguist would otherwise skip
+.gitattributes  linguist-detectable=true linguist-language="Git Attributes"
+.gitignore      linguist-detectable=true linguist-language="Ignore List"
+.github/**      linguist-vendored=false linguist-detectable=true
+reports/**      linguist-documentation=false linguist-generated=false linguist-detectable=true
+analysis/**     linguist-vendored=false linguist-detectable=true
+tests/**        linguist-vendored=false linguist-detectable=true
+
+# line endings
 * text=auto eol=lf
 *.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
