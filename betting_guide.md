@@ -15,6 +15,7 @@ Live-play reference for `cfb_edge.py`. Read before firing on any game. Companion
 |---|---|---|---|---|
 | 1 | **ATS** | FPI predicted margin vs DK spread | Δ ≥ 3 (lean) / 5 ≤ Δ < 8 (STRONG) / Δ ≥ 8 (capped at lean, ⚠overreach) | primary |
 | 2 | **ML** | FPI win prob vs de-vigged DK moneyline | +8% (value) / +20% (STRONG); dogs +100..+150 never staked | primary when the spread is tiny or the dog is live |
+| 2b | **just win** | favourites FPI and DK agree on (report §0b) | FPI ≥ 60%, ML −250..−110, FPI ahead of fair by 0..+20%, +EV at the vigged price, no steam against | the "who wins at a holdable price" question; own paper bucket since 2026-09-26, no record yet |
 | 3 | **line move** | DK opener vs current | ≥ 3 pts | information only — the market learned something |
 | 4 | **total steam** | DK total opener vs current | ≥ 2.5 pts | information only — no totals model |
 
@@ -29,6 +30,8 @@ Nothing, with real money, as of 2026-09-20. The paper ledger fires on:
 
 1. **STRONG ATS** (5 ≤ Δ < 8) on an FBS-vs-FBS game. Δ ≥ 8 is demoted to lean.
 2. **ML value / STRONG ML** outside the dead zone (+100..+150) and inside −300..+400.
+3. **Just win** sides (report §0b), logged as their own kind so the loop can grade the
+   "favourite at a holdable price" idea separately from the outlier idea.
 
 The old "three confirmations" (STRONG ATS + steam with + ML on the same side) was tested
 on the 2025 season and did not survive: steam toward the FPI side covers 47.9%, steam

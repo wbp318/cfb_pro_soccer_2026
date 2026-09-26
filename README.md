@@ -141,7 +141,7 @@ cd cfb_soccer_nhl_2026_2027
 pip install -r requirements.txt            # runtime: just `requests`
 pip install -r analysis/requirements-py.txt -r requirements-dev.txt   # pandas/numpy + ruff/pytest
 python cfb_edge.py --top 10                # first live run — should print next Saturday's outliers
-python -m pytest -q tests                  # 77 passed
+python -m pytest -q tests                  # 78 passed
 ```
 
 No API keys, no `.env`, nothing to sign up for. If the first live run prints a 403, read
@@ -223,7 +223,7 @@ flowchart TB
 
     subgraph GUARD["4 · Guard rails (no internet, no real data)"]
         direction LR
-        T["tests/\npytest · 77 cases\nodds math · signals · grading · SQLite"]
+        T["tests/\npytest · 78 cases\nodds math · signals · grading · SQLite"]
         CI["GitHub Actions\npy 3.12 + 3.13 · R 4.4\nlint · tests · empty-DB runs"]
     end
 
@@ -281,7 +281,7 @@ flowchart TD
     BRANCH -->|"--settle"| ST["db_persist (scores) →\ndb_settle_paper: grade W/L/P + profit\nsettle_bets: grade bets.csv via _side_is_home\n(prefix/substring match; ambiguous → left unsettled)"] --> END
     BRANCH -->|"default / --top / --flagged / --picks"| RENDER
 
-    RENDER["for each game:\nspread_signal · ml_signal\nspread_move_signal · total_move_signal\n(demotions: FCS · blowout · steam-against\n⚠overreach · ⚠dead-zone-dog · long-dog)"] --> R1["render_board (all games)\nor render_top / render_picks (ranked, strength → steam → edge)\nboth start with stakes_banner() → PAPER ONLY"]
+    RENDER["for each game:\nspread_signal · ml_signal · just_win_signal\nspread_move_signal · total_move_signal\n(demotions: FCS · blowout · steam-against\n⚠overreach · ⚠dead-zone-dog · long-dog)"] --> R1["render_board (all games)\nor render_top / render_picks (ranked, strength → steam → edge)\nplus render_just_win (favourites, win prob → edge)\nboth start with stakes_banner() → PAPER ONLY"]
     R1 --> REP{"--report?"}
     REP -->|yes| W["write_report → reports/WEEKDAY-DATE.md"] --> END
     REP -->|no| END((done))
@@ -330,7 +330,7 @@ flowchart LR
     PR --> G
     PI --> G
 
-    G --> SIG["signals\nspread_signal · ml_signal\nspread_move_signal · total_move_signal"]
+    G --> SIG["signals\nspread_signal · ml_signal · just_win_signal\nspread_move_signal · total_move_signal"]
     SIG --> BOARD["render_board / render_top\nterminal"]
     SIG --> REP["write_report\nreports/WEEKDAY-DATE.md"]
     G --> DB[("data.db\ngames · snapshots · paper_bets")]
@@ -369,6 +369,7 @@ flowchart TD
 |---|---|---|---|
 | **ATS** (`spread_signal`) | FPI predicted margin vs DK spread | Δ ≥ 3 pts (lean), 5 ≤ Δ < 8 (STRONG), Δ ≥ 8 capped at lean (⚠overreach) | paper — cover % = Φ(Δ / 13.5) |
 | **ML** (`ml_signal`) | FPI win prob vs de‑vigged DK moneyline | edge ≥ +8% (value), ≥ +20% (STRONG); +100..+150 dogs never (⚠dead‑zone‑dog) | paper — truth p = FPI win prob |
+| **just win** (`just_win_signal`) | favourites FPI and DK agree on | FPI ≥ 60% to win, market favoured too, ML −250..−110, FPI ahead of fair by 0..+20%, +EV at the vigged price, FBS both, no steam against; ranked by win prob | paper — own `just-win` kind in `paper_bets`, **no track record yet** |
 | **line move** (`spread_move_signal`) | DK opener vs current | ≥ 3 pts | no — it's news (QB, injury, weather), not a model |
 | **total steam** (`total_move_signal`) | DK total opener vs current | ≥ 2.5 pts | no — there is no totals model here |
 
@@ -722,7 +723,7 @@ flowchart LR
     PUSH --> RJ["R job\n(r-lib/actions, R 4.4)"]
     PY --> P1["py_compile\ncfb_edge.py + soccer_edge.py + nhl_edge.py + analysis/*.py"]
     P1 --> P2["ruff check\n(rule set pinned in ruff.toml)"]
-    P2 --> PT["pytest tests/\n77 cases · no network"]
+    P2 --> PT["pytest tests/\n78 cases · no network"]
     PT --> P3["cfb_edge.py --help\n(argparse still parses)"]
     P3 --> P4["--paper-show --db scratch.db\n(SCHEMA + MIGRATIONS bootstrap)"]
     P4 --> P5["run all 6 analysis .py\nagainst empty scratch DBs\nCFB_DB · CFB_SOCCER_DB · CFB_NHL_DB"]

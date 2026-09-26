@@ -4,6 +4,29 @@ All notable changes to `cfb_edge.py` and the analysis loop. Rule changes cite th
 run that justified them; nothing in the constants block changes without one. Weekly report
 releases (`<weekday>-<date>` tags) are not listed here; see the GitHub releases page.
 
+## [2026-09-26] — Just-win board (football)
+
+### Added
+- **`just_win_signal` / `just_win_board` / `render_just_win`** in `cfb_edge.py` and report
+  section **0b. Just-win board**. The opposite question from the outlier board: who is going
+  to win outright at a price worth holding. A side qualifies when FPI gives it ≥ 60% to win
+  (`JUST_WIN_MIN_P`), the market also favours it, the moneyline is in −250..−110
+  (`JUST_WIN_PRICE`), FPI is ahead of the de-vigged price by 0..+20%
+  (`JUST_WIN_MAX_EDGE_PCT = ML_STRONG_PCT`, because every run so far says bigger gaps lose),
+  the ticket is +EV at the vigged price, both teams are FBS and the spread has not moved
+  ≥ 1.5 pts against it. Ranked by FPI win probability; the report bolds the top 5
+  (`JUST_WIN_N`). Printed after the picks board in the terminal too.
+- Every qualifying side is paper-logged as kind `just-win` (strength 1, graded like a
+  moneyline) so `analysis/01` gets its own bucket. **No track record yet**; `LIVE_STAKES`
+  unchanged.
+- Test `test_just_win_board_favourites_at_a_holdable_price` (78 cases). README signal table
+  and both football diagrams, `betting_guide.md` §1–§2, `CLAUDE.md` updated.
+
+### Why
+- The user asked for "winners with a decent line", not outliers. First cut of 2026-09-26
+  ranked five; Mississippi State −230 showed FPI 67% vs fair 67% and −3.3% EV, so the +EV
+  gate was added and it dropped to four honest sides.
+
 ## [2026-09-20h] — Every language counts on the GitHub language bar
 
 - `.gitattributes` rewritten: every extension linguist would hide as documentation, data or

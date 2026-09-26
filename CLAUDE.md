@@ -45,7 +45,7 @@ python nhl_edge.py --settle
 
 # checks — run all four before every push
 ruff check cfb_edge.py cfb_gui.py soccer_edge.py nhl_edge.py analysis tests
-python -m pytest -q tests                           # 77 cases, no network
+python -m pytest -q tests                           # 78 cases, no network
 python -m pytest -q tests/test_soccer_edge.py -k draw   # one file / one test
 python analysis/05_soccer/soccer_loop.py && "C:/Program Files/R/R-4.4.2/bin/Rscript" analysis/05_soccer/soccer_loop.R
 ```
@@ -75,7 +75,9 @@ SQLite → rendering/report → main). Don't split them without asking.
 **Signal shape is identical across sports:** `strength` 2/1/0 with a label, `edge`,
 `truth_p`, `price`; stakes fire only on strength ≥ 1 with a `truth_p`. Every demotion sets
 strength and a ⚠note. Market-only signals (line move, prob move, total move) are strength 1,
-informational, never staked.
+informational, never staked. Football also has `just_win_signal` (kind `just-win`): the
+opposite question, favourites FPI and DK agree on at -250..-110, +EV, gap <= +20%; report
+section 0b, own paper bucket, no track record yet.
 
 **Backfill is honest by construction.** Football: ESPN freezes `current` at the closer and
 the predictor at game morning. Soccer: ratings are never stored; `elo_as_of(date)` replays the
@@ -89,7 +91,7 @@ analysis loaders take the last row per game as the closer.
 
 **The analysis loop is the source of truth for every rule constant.** Six scripts, each a
 Python + R pair sharing SQL, bins and the closed-form Wilson interval: `01`–`04` football
-(`data.db`), `05` soccer, `06` NHL. Point estimates must match to the digit; only bootstrap
+(`data.db`), `05` soccer, `06` NHL. `01` groups by `kind`, so `just-win` shows up as its own row once it has settled bets. Point estimates must match to the digit; only bootstrap
 CIs may differ in the last place. To change a constant: run both runtimes, confirm they
 agree, edit the constants block, bump `FINDINGS_AS_OF`, update the README status table
 (football "Before you bet", soccer "Honest status", NHL calibration table), add a
