@@ -147,8 +147,9 @@ the analysis twin too.
   branch and open a PR.
 - Releases: every report run is a release tagged `<weekday>-<date>`, `soccer-<weekday>-<date>`
   or `nhl-<weekday>-<date>` (same-day refresh adds `-HHMM`, earlier release stays); rule
-  changes are `rules-<date>`; new analysis scripts are `analysis-0N-<sport>-<date>`. Attach the
-  report or `CHANGELOG.md`, use `--target main`, feed stdin from `/dev/null`.
+  changes are `rules-<date>`; new analysis scripts are `analysis-0N-<sport>-<date>`. The release body
+  IS the full report (`--notes-file reports/<file>.md`) or the full changelog entry; never just
+  attach the file. Use `--target main`, feed stdin from `/dev/null`.
 - `CHANGELOG.md` gets an entry for every rule/constant change and every fix, citing the
   analysis run. Weekly report releases are not changelog entries.
 - Every Mermaid block must parse; the scratch check is `node check.mjs README.md
