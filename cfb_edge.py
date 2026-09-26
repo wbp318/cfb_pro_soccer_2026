@@ -76,6 +76,12 @@ SPREAD_OVERREACH_PTS = 8.0        # |FPI - DK| this big: the market knows someth
 ML_DEAD_ZONE = (100, 150)         # ML dogs in this band never staked (30% hit, -33% ROI on 63 bets)
 LIVE_STAKES = False               # no bucket has a 95% CI above zero -> paper only, no real money
 HFA_PTS = 2.5                     # for the rating-diff cross-check only
+# "just win" board: favourites FPI and the market agree on, at a price you can hold.
+# Deliberately the opposite of the outlier board — the data says big gaps lose.
+JUST_WIN_MIN_P = 0.60             # FPI must give the side at least this to win outright
+JUST_WIN_PRICE = (-250, -110)     # moneyline window; shorter than -250 pays nothing, plus money = coin flip
+JUST_WIN_MAX_EDGE_PCT = ML_STRONG_PCT   # past a STRONG-sized gap the market knows something; drop it
+JUST_WIN_N = 5                    # the top table in the report
 
 FINDINGS_AS_OF = "2026-09-20"
 
@@ -489,6 +495,48 @@ def findings_warnings(sig: Signal) -> list[str]:
     return w
 
 
+def just_win_signal(g: Game) -> Optional[Signal]:
+    """The favourite FPI expects to win outright, with the market on the same side, priced
+    inside JUST_WIN_PRICE and disagreeing with FPI by no more than a STRONG-sized gap.
+    Strength is always 1: this is a separate paper bucket ("just-win") the analysis loop has
+    not graded yet. edge is the relative % gap, truth_p the FPI win prob."""
+    if g.home.fpi is None or g.away.fpi is None or g.home.fpi_win_p is None:
+        return None                     # FBS vs FBS only, same rule as every other signal
+    ph, pa = devig_pair(g.home.ml, g.away.ml)
+    if ph is None:
+        return None
+    side, fair = (g.home, ph) if g.home.fpi_win_p >= 0.5 else (g.away, pa)
+    p = side.fpi_win_p
+    if p is None or side.ml is None or p < JUST_WIN_MIN_P or fair < 0.5:
+        return None
+    if not (JUST_WIN_PRICE[0] <= side.ml <= JUST_WIN_PRICE[1]):
+        return None
+    edge = (p - fair) / fair * 100.0
+    if edge <= 0 or edge > JUST_WIN_MAX_EDGE_PCT:
+        return None
+    if p * american_to_decimal(side.ml) <= 1.0:
+        return None                     # positive EV at the *vigged* price, not just vs fair
+    mv = spread_move_home(g)
+    steam = ""
+    if mv is not None and abs(mv) >= STEAM_PTS:
+        steam = "with" if (mv > 0) == (side is g.home) else "against"
+    if steam == "against":
+        return None
+    return Signal(g, "just-win", side, "JUST WIN", 1, edge, p, side.ml, side.spread, steam,
+                  f"fair {fair*100:.0f}%")
+
+
+def just_win_board(games: list[Game]) -> list[Signal]:
+    """Every qualifying just-win side, most likely winner first (ties: bigger edge)."""
+    sigs = [s for g in games if g.status == "pre" for s in (just_win_signal(g),) if s]
+    return sorted(sigs, key=lambda s: (-s.truth_p, -s.edge))
+
+
+def just_win_roi(s: Signal) -> float:
+    """Expected return per $1 at FPI's win probability, in %."""
+    return (s.truth_p * american_to_decimal(s.price) - 1.0) * 100.0
+
+
 # =====================================================================
 # ---- SQLite persistence ----
 # =====================================================================
@@ -587,7 +635,7 @@ def db_paper_log(conn: sqlite3.Connection, sigs: list[Signal], bankroll: float,
 
 def _grade(kind: str, side_is_home: bool, line: Optional[float], hs: int, as_: int) -> str:
     margin = (hs - as_) if side_is_home else (as_ - hs)
-    if kind == "ml":
+    if kind in ("ml", "just-win"):
         return "W" if margin > 0 else "L" if margin < 0 else "P"
     if kind == "spread":
         adj = margin + (line or 0.0)
@@ -932,6 +980,31 @@ def render_top(games: list[Game], bankroll: float, color: bool, n: int = 12) -> 
     return "\n".join(out)
 
 
+def _just_win_row(s: Signal) -> tuple[str, str, str, str, str, str]:
+    """(kick, play, ml, fpi %, fair %, spread) — shared by the terminal and the report."""
+    g = s.game
+    kick = g.kick_local.strftime("%I:%M %p").lstrip("0")
+    opp = g.away if s.side is g.home else g.home
+    where = "vs" if s.side is g.home else "at"
+    return (kick, f"{s.side.name} {where} {opp.name}", fmt_ml(s.price), f"{s.truth_p*100:.0f}%",
+            s.key_note.replace("fair ", ""), f"{s.side.name} {fmt_spread(s.side.spread)}")
+
+
+def render_just_win(games: list[Game], color: bool, n: int = JUST_WIN_N) -> str:
+    board = just_win_board(games)
+    if not board:
+        return "Just-win board: no favourite clears the window today"
+    out = [f"Just-win board — favourites FPI and DK agree on, {fmt_ml(JUST_WIN_PRICE[0])} to "
+           f"{fmt_ml(JUST_WIN_PRICE[1])}, FPI ≥ {JUST_WIN_MIN_P*100:.0f}% — top {n} starred"]
+    for i, s in enumerate(board, 1):
+        kick, play, ml, p, fair, sp = _just_win_row(s)
+        tag = "★" if i <= n else " "
+        out.append(_c(f"{tag}{i:>2}. ", "green", color and i <= n) +
+                   f"{kick:<9}{play:<48} ML {ml:>5}  FPI {p} vs fair {fair}  "
+                   f"EV {just_win_roi(s):+.1f}%  {sp}{'  [steam with]' if s.steam else ''}")
+    return "\n".join(out)
+
+
 # =====================================================================
 # ---- report ----
 # =====================================================================
@@ -977,6 +1050,36 @@ def write_report(games: list[Game], bankroll: float, date: dt.date, now: dt.date
                  f"{s.game.short} | {play} | {why} | ${st:.0f} | {conf or '—'} |")
     if not picks:
         L.append("| — | no ticket clears every rule today | | | | | | |")
+    board = just_win_board(games)
+    L += ["",
+          "## 0b. Just-win board — winners at a decent line",
+          "",
+          f"The opposite question from the rest of this page: not *where does FPI disagree with "
+          f"the market* but *who is going to win, at a price worth holding*. A side qualifies when "
+          f"FPI gives it ≥ {JUST_WIN_MIN_P*100:.0f}% to win, the market also has it favoured, the "
+          f"moneyline sits between {fmt_ml(JUST_WIN_PRICE[0])} and {fmt_ml(JUST_WIN_PRICE[1])}, "
+          f"FPI is ahead of the de-vigged price by at most +{JUST_WIN_MAX_EDGE_PCT:.0f}% (bigger "
+          f"gaps are where the ledger bleeds), it is +EV at the vigged price, both teams are FBS "
+          f"and the line has not moved against it. Ranked by FPI win probability. *EV* is expected return per $1 at FPI's "
+          f"number. Logged to `paper_bets` as kind `just-win` so `analysis/01` can grade the "
+          f"bucket on its own; it has **no track record yet**.",
+          "",
+          f"### Top {JUST_WIN_N}",
+          "",
+          "| # | Kick (CT) | Pick | ML | FPI win % | Market fair % | EV | Spread |",
+          "|---|---|---|---|---|---|---|---|"]
+    for i, s in enumerate(board[:JUST_WIN_N], 1):
+        kick, play, ml, p, fair, sp = _just_win_row(s)
+        L.append(f"| {i} | {kick} | **{play}** | {ml} | {p} | {fair} | {just_win_roi(s):+.1f}% | {sp} |")
+    if not board:
+        L.append("| — | no favourite clears the window today | | | | | | |")
+    if len(board) > JUST_WIN_N:
+        L += ["", "### The rest of the board", "",
+              "| # | Kick (CT) | Pick | ML | FPI win % | Market fair % | EV | Spread |",
+              "|---|---|---|---|---|---|---|---|"]
+        for i, s in enumerate(board[JUST_WIN_N:], JUST_WIN_N + 1):
+            kick, play, ml, p, fair, sp = _just_win_row(s)
+            L.append(f"| {i} | {kick} | {play} | {ml} | {p} | {fair} | {just_win_roi(s):+.1f}% | {sp} |")
     L += ["",
          "## 1. Ranked outliers",
          "",
@@ -1124,7 +1227,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         a.settle = True
     elif a.snapshot:
         n = db_paper_log(conn, ranked_signals(games), a.bankroll, now)
-        print(f"paper-logged {n} new flagged plays", file=sys.stderr)
+        m = db_paper_log(conn, just_win_board(games), a.bankroll, now)
+        print(f"paper-logged {n} new flagged plays + {m} just-win sides", file=sys.stderr)
     if a.settle:
         n, staked, profit = db_settle_paper(conn)
         print(f"settled {n} paper bets: staked {staked:.2f}, profit {profit:+.2f}")
@@ -1137,12 +1241,16 @@ def main(argv: Optional[list[str]] = None) -> int:
         print(render_picks(games, a.bankroll, color))
     elif a.top:
         print(render_top(games, a.bankroll, color, a.top))
+        print()
+        print(render_just_win(games, color))
     else:
         print(render_board(games, a.bankroll, color, only_flagged=a.flagged))
         print()
         print(render_top(games, a.bankroll, color, 10))
         print()
         print(render_picks(games, a.bankroll, color))
+        print()
+        print(render_just_win(games, color))
     if a.report:
         path = write_report(games, a.bankroll, date, now, db_paper_summary(conn))
         print(f"\nreport → {path}")

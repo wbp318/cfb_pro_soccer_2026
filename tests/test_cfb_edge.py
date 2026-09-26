@@ -394,3 +394,40 @@ def test_stakes_banner_says_paper_only():
     b = ce.stakes_banner()
     assert "PAPER ONLY" in b and ce.FINDINGS_AS_OF in b
     assert b in ce.render_top([make_game(fpi_home_margin=10.0)], 100.0, color=False)
+
+
+def test_just_win_board_favourites_at_a_holdable_price(tmp_path):
+    # FPI 70% home, DK -198/+160 -> fair ~65%: in the window, small gap -> qualifies
+    ok = make_game(home_spread=-5.5, home_ml=-198, away_ml=+160, fpi_home_p=0.70)
+    s = ce.just_win_signal(ok)
+    assert s and s.kind == "just-win" and s.side is ok.home and s.strength == 1
+    assert 0 < s.edge < ce.JUST_WIN_MAX_EDGE_PCT and s.price == -198
+    assert ce.just_win_roi(s) > 0
+    # too short, plus money, gap too big, FPI too low, steam against, FCS side: all out
+    assert ce.just_win_signal(make_game(home_ml=-400, away_ml=+300, fpi_home_p=0.85)) is None
+    assert ce.just_win_signal(make_game(home_ml=+105, away_ml=-125, fpi_home_p=0.62)) is None
+    assert ce.just_win_signal(make_game(home_ml=-130, away_ml=+110, fpi_home_p=0.80)) is None
+    assert ce.just_win_signal(make_game(home_ml=-150, away_ml=+130, fpi_home_p=0.58)) is None
+    assert ce.just_win_signal(make_game(home_spread=-3.5, home_spread_open=-6.5,
+                                        home_ml=-198, away_ml=+160, fpi_home_p=0.70)) is None
+    assert ce.just_win_signal(make_game(home_ml=-198, away_ml=+160, fpi_home_p=0.70,
+                                        away_fpi=None)) is None
+    # board ranks by win prob, report carries the section, ledger grades it like a moneyline
+    two = make_game(home_ml=-140, away_ml=+120, fpi_home_p=0.64)
+    two.id = "g2"
+    board = ce.just_win_board([two, ok])
+    assert [x.game.id for x in board] == ["g1", "g2"]
+    assert "Home U vs Away State" in ce.render_just_win([two, ok], False)
+    assert ce._grade("just-win", True, None, 21, 17) == "W"
+    conn = ce.db_connect(str(tmp_path / "t.db"))
+    now = dt.datetime(2026, 9, 26, 8, 0, tzinfo=ce.LOCAL_TZ)
+    assert ce.db_paper_log(conn, board, 100.0, now) == 2
+    assert conn.execute("SELECT COUNT(*) FROM paper_bets WHERE kind='just-win'").fetchone()[0] == 2
+    monkey_dir = tmp_path / "reports"
+    ce.REPORTS_DIR = str(monkey_dir)
+    path = ce.write_report([two, ok], 100.0, dt.date(2026, 9, 26), now, "")
+    text = open(path, encoding="utf-8").read()
+    assert "## 0b. Just-win board" in text and "**Home U vs Away State**" in text
+    ce.REPORTS_DIR = "reports"
+    # FPI only a hair above fair: +edge but the vig makes it -EV, so it is out
+    assert ce.just_win_signal(make_game(home_ml=-230, away_ml=+190, fpi_home_p=0.67)) is None
