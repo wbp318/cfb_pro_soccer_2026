@@ -19,7 +19,11 @@ releases (`<weekday>-<date>` tags) are not listed here; see the GitHub releases 
 - Every qualifying side is paper-logged as kind `just-win` (strength 1, graded like a
   moneyline) so `analysis/01` gets its own bucket. **No track record yet**; `LIVE_STAKES`
   unchanged.
-- Test `test_just_win_board_favourites_at_a_holdable_price` (78 cases). README signal table
+- **Report opens with “The lock, and five good ones”** (`lock_and_good`, `GOOD_PICKS_N = 5`):
+  the lock is the top of the just-win board; good picks are the rest of that board, then the
+  picks board in rank order, one per game. Same-day refresh release `saturday-2026-09-26-HHMM`.
+- Tests `test_just_win_board_favourites_at_a_holdable_price` and
+  `test_lock_and_good_picks_lead_with_just_win_then_outliers` (79 cases). README signal table
   and both football diagrams, `betting_guide.md` §1–§2, `CLAUDE.md` updated.
 
 ### Why

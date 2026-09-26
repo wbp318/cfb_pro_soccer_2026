@@ -1009,6 +1009,40 @@ def render_just_win(games: list[Game], color: bool, n: int = JUST_WIN_N) -> str:
 # ---- report ----
 # =====================================================================
 
+GOOD_PICKS_N = 5
+
+
+def lock_and_good(games: list[Game], bankroll: float,
+                  n: int = GOOD_PICKS_N) -> tuple[Optional[Signal], list[Signal]]:
+    """The one pick to trust most and the next `n` worth a look.
+
+    The lock is the top of the just-win board (most likely winner at a holdable price).
+    The good picks are the rest of that board, then the picks board (outliers that clear every
+    rule) in rank order, one per game, never repeating the lock's game."""
+    jw = just_win_board(games)
+    lock = jw[0] if jw else None
+    seen = {lock.game.id} if lock else set()
+    good: list[Signal] = []
+    for s in jw[1:] + [s for s, _ in pick_signals(games, bankroll, n=MAX_PICKS)]:
+        if s.game.id in seen:
+            continue
+        good.append(s)
+        seen.add(s.game.id)
+        if len(good) >= n:
+            break
+    return lock, good
+
+
+def _short_play(s: Signal) -> tuple[str, str]:
+    """(play, why) for any staked kind — shared by the lock table and the terminal."""
+    if s.kind == "just-win":
+        kick, play, ml, p, fair, sp = _just_win_row(s)
+        return (f"{play} ML {ml}",
+                f"FPI {p} to win vs fair {fair}, EV {just_win_roi(s):+.1f}% (just-win board)")
+    play, why, conf = _pick_row(s)
+    return play, f"{why} ({s.label}{', ' + conf if conf else ''})"
+
+
 def report_path(date: dt.date) -> str:
     """reports/saturday-<date>.md on Saturdays (the historical name); reports/<weekday>-<date>.md otherwise."""
     return os.path.join(REPORTS_DIR, f"{date.strftime('%A').lower()}-{date.isoformat()}.md")
@@ -1036,6 +1070,24 @@ def write_report(games: list[Game], bankroll: float, date: dt.date, now: dt.date
          "the worse it does (Δ8+: 42.5%). Every flagged play is written to `paper_bets` in `data.db`; the "
          "paper ledger (below) and `analysis/` are the only things that can turn stakes back on.",
          "",
+         "## The lock, and five good ones",
+         "",
+         "**The lock** is the top of the just-win board (§0b): the most likely outright winner at a "
+         "price worth holding. **Good** is the rest of that board, then the picks board (§0) in rank "
+         "order, one per game. Paper only, like everything here.",
+         "",
+         "| | Kick (CT) | Play | Why |",
+         "|---|---|---|---|"]
+    lock, good = lock_and_good(games, bankroll)
+    if lock:
+        play, why = _short_play(lock)
+        L.append(f"| **LOCK** | {lock.game.kick_local.strftime('%I:%M %p').lstrip('0')} | **{play}** | {why} |")
+    else:
+        L.append("| **LOCK** | — | no favourite clears the just-win window today | |")
+    for i, s in enumerate(good, 1):
+        play, why = _short_play(s)
+        L.append(f"| good {i} | {s.game.kick_local.strftime('%I:%M %p').lstrip('0')} | {play} | {why} |")
+    L += ["",
          "## 0. Picks board",
          "",
          "Tickets that clear **every** rule in `betting_guide.md`: FBS vs FBS, ATS or ML only, "

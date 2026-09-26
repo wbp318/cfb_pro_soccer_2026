@@ -431,3 +431,14 @@ def test_just_win_board_favourites_at_a_holdable_price(tmp_path):
     ce.REPORTS_DIR = "reports"
     # FPI only a hair above fair: +edge but the vig makes it -EV, so it is out
     assert ce.just_win_signal(make_game(home_ml=-230, away_ml=+190, fpi_home_p=0.67)) is None
+
+
+def test_lock_and_good_picks_lead_with_just_win_then_outliers():
+    jw = make_game(home_spread=-5.5, home_ml=-198, away_ml=+160, fpi_home_p=0.70)   # just-win
+    ats = make_game(home_spread=-3.5, fpi_home_margin=11.0, home_ml=-400, away_ml=+300,
+                    fpi_home_p=0.70)                                                 # STRONG ATS, ML too short
+    ats.id = "g2"
+    lock, good = ce.lock_and_good([ats, jw], 100.0)
+    assert lock.kind == "just-win" and lock.game.id == "g1"
+    assert [s.game.id for s in good] == ["g2"] and good[0].kind == "spread"
+    assert ce.lock_and_good([make_game(status="in")], 100.0) == (None, [])

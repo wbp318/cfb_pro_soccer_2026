@@ -45,7 +45,7 @@ python nhl_edge.py --settle
 
 # checks — run all four before every push
 ruff check cfb_edge.py cfb_gui.py soccer_edge.py nhl_edge.py analysis tests
-python -m pytest -q tests                           # 78 cases, no network
+python -m pytest -q tests                           # 79 cases, no network
 python -m pytest -q tests/test_soccer_edge.py -k draw   # one file / one test
 python analysis/05_soccer/soccer_loop.py && "C:/Program Files/R/R-4.4.2/bin/Rscript" analysis/05_soccer/soccer_loop.R
 ```
